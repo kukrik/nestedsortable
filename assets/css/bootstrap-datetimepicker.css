@@ -286,7 +286,6 @@
 .datetimepicker table tr td.active.disabled.active,
 .datetimepicker table tr td.active.disabled:hover.active {
 	background-color: #003399;
-	width: 40px;
 }
 
 .datetimepicker table tr td span {

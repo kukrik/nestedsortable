@@ -13,9 +13,9 @@ class PlaceholderEditPanel extends Q\Control\Panel
 
     public $dlgModal1;
     public $dlgModal2;
-    
-    protected $dlgToastr1;
-    protected $dlgToastr2;
+    public $dlgModal3;
+    public $dlgModal4;
+    public $dlgModal5;
 
     public $lblExistingMenuText;
     public $txtExistingMenuText;
@@ -32,13 +32,7 @@ class PlaceholderEditPanel extends Q\Control\Panel
     public $lblTitleSlug;
     public $txtTitleSlug;
 
-    public $btnSave;
-    public $btnSaving;
-    public $btnDelete;
-    public $btnCancel;
-
-    protected $strSaveButtonId;
-    protected $strSavingButtonId;
+    public $btnBack;
 
     protected $intId;
     protected $objMenuContent;
@@ -56,10 +50,28 @@ class PlaceholderEditPanel extends Q\Control\Panel
         }
 
         $this->intId = Application::instance()->context()->queryStringItem('id');
+        $this->objMenu = Menu::load($this->intId);
         $this->objMenuContent = MenuContent::load($this->intId);
 
-        $this->objMenu = Menu::load($this->intId);
+        $this->createInputs();
+        $this->createButtons();
+        $this->createModals();
+    }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Initializes and configures various input controls for managing menu content.
+     *
+     * This method sets up multiple labels, text boxes, and selection controls to
+     * facilitate the input of menu information, such as menu text, content type,
+     * status, and other related properties. Several controls are associated with
+     * styling and validation attributes to ensure a seamless user interaction.
+     *
+     * @return void
+     */
+    public function createInputs()
+    {
         $this->lblInfo = new Q\Plugin\Control\Alert($this);
         $this->lblInfo->Display = true;
         $this->lblInfo->Dismissable = true;
@@ -90,6 +102,9 @@ class PlaceholderEditPanel extends Q\Control\Panel
         $this->txtMenuText->Text = $this->objMenuContent->MenuText;
         $this->txtMenuText->addWrapperCssClass('center-button');
         $this->txtMenuText->MaxLength = MenuContent::MenuTextMaxLength;
+        $this->txtMenuText->setHtmlAttribute('required', 'required');
+
+        $this->txtMenuText->Enabled = false;
 
         $this->lblContentType = new Q\Plugin\Control\Label($this);
         $this->lblContentType->Text = t('Content type');
@@ -105,6 +120,9 @@ class PlaceholderEditPanel extends Q\Control\Panel
         $this->lstContentTypes->addItems($this->lstContentTypeObject_GetItems(), true);
         $this->lstContentTypes->SelectedValue = $this->objMenuContent->ContentType;
         $this->lstContentTypes->addAction(new Q\Event\Change(), new Q\Action\AjaxControl($this,'lstClassNames_Change'));
+        $this->lstContentTypes->setHtmlAttribute('required', 'required');
+
+        $this->lstContentTypes->Enabled = false;
 
         $this->lblTitleSlug = new Q\Plugin\Control\Label($this);
         $this->lblTitleSlug->Text = t('View');
@@ -114,7 +132,7 @@ class PlaceholderEditPanel extends Q\Control\Panel
         if ($this->objMenuContent->getRedirectUrl()) {
             $this->txtTitleSlug = new Q\Plugin\Control\Label($this);
             $url = $this->objMenuContent->getRedirectUrl();
-            $this->txtTitleSlug->Text = Q\Html::renderLink($url, $url, null);
+            $this->txtTitleSlug->Text = Q\Html::renderLink($url, $url, ["target" => "_blank", "class" => "view-link"]);
             $this->txtTitleSlug->HtmlEntities = false;
             $this->txtTitleSlug->setCssStyle('font-weight', 400);
         } else {
@@ -129,7 +147,7 @@ class PlaceholderEditPanel extends Q\Control\Panel
         $this->lblStatus->Required = true;
 
         $this->lstStatus = new Q\Plugin\Control\RadioList($this);
-        $this->lstStatus->addItems([1 => t('Published'), 0 => t('Hidden'), 2 => t('Draft')]);
+        $this->lstStatus->addItems([1 => t('Published'), 2 => t('Hidden')]);
         $this->lstStatus->SelectedValue = $this->objMenuContent->IsEnabled;
         $this->lstStatus->ButtonGroupClass = 'radio radio-orange radio-inline';
         $this->lstStatus->AddAction(new Q\Event\Click(), new Q\Action\AjaxControl($this,'lstStatus_Click'));
@@ -137,218 +155,182 @@ class PlaceholderEditPanel extends Q\Control\Panel
         if ($this->objMenu->ParentId || $this->objMenu->Right !== $this->objMenu->Left + 1) {
             $this->lstStatus->Enabled = false;
         }
-        
-        $this->createButtons();
-        $this->createToastr();
-        $this->createModals();
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////////////
-
+    /**
+     * Initializes the back button for navigation in the menu manager interface.
+     *
+     * @return void
+     */
     public function CreateButtons()
     {
-        $this->btnSave = new Q\Plugin\Control\Button($this);
-        if ($this->objMenuContent->getRedirectUrl()) {
-            $this->btnSave->Text = t('Update');
-        } else {
-            $this->btnSave->Text = t('Save');
-        }
-        $this->btnSave->CssClass = 'btn btn-orange';
-        $this->btnSave->addWrapperCssClass('center-button');
-        $this->btnSave->PrimaryButton = true;
-        $this->btnSave->addAction(new Q\Event\Click(), new Q\Action\AjaxControl($this,'btnMenuSave_Click'));
-        // The variable below is being prepared for fast transmission
-        $this->strSaveButtonId = $this->btnSave->ControlId;
-
-        $this->btnSaving = new Q\Plugin\Control\Button($this);
-        if ($this->objMenuContent->getRedirectUrl()) {
-            $this->btnSaving->Text = t('Update and close');
-        } else {
-            $this->btnSaving->Text = t('Save and close');
-        }
-        $this->btnSaving->CssClass = 'btn btn-darkblue';
-        $this->btnSaving->addWrapperCssClass('center-button');
-        $this->btnSaving->PrimaryButton = true;
-        $this->btnSaving->addAction(new Q\Event\Click(), new Q\Action\AjaxControl($this,'btnMenuSaveClose_Click'));
-        // The variable below is being prepared for fast transmission
-        $this->strSavingButtonId = $this->btnSaving->ControlId;
-
-        $this->btnCancel = new Q\Plugin\Control\Button($this);
-        $this->btnCancel->Text = t('Cancel');
-        $this->btnCancel->CssClass = 'btn btn-default';
-        $this->btnCancel->addWrapperCssClass('center-button');
-        $this->btnCancel->CausesValidation = false;
-        $this->btnCancel->addAction(new Q\Event\Click(), new Q\Action\AjaxControl($this,'btnMenuCancel_Click'));
+        $this->btnBack = new Bs\Button($this);
+        $this->btnBack->Text = t('Back to menu manager');
+        $this->btnBack->CssClass = 'btn btn-default';
+        $this->btnBack->addWrapperCssClass('center-button');
+        $this->btnBack->CausesValidation = false;
+        $this->btnBack->addAction(new Q\Event\Click(), new Q\Action\AjaxControl($this,'btnBack_Click'));
     }
 
-    protected function createToastr()
-    {
-        $this->dlgToastr1 = new Q\Plugin\Toastr($this);
-        $this->dlgToastr1->AlertType = Q\Plugin\Toastr::TYPE_SUCCESS;
-        $this->dlgToastr1->PositionClass = Q\Plugin\Toastr::POSITION_TOP_CENTER;
-        $this->dlgToastr1->Message = t('<strong>Well done!</strong> The post has been saved or modified.');
-        $this->dlgToastr1->ProgressBar = true;
-
-        $this->dlgToastr2 = new Q\Plugin\Toastr($this);
-        $this->dlgToastr2->AlertType = Q\Plugin\Toastr::TYPE_ERROR;
-        $this->dlgToastr2->PositionClass = Q\Plugin\Toastr::POSITION_TOP_CENTER;
-        $this->dlgToastr2->Message = t('<strong>Sorry</strong>, the menu title must exist!');
-        $this->dlgToastr2->ProgressBar = true;
-    }
-    
+    /**
+     * Initializes and configures multiple modal dialogs with specific content, titles, and actions.
+     *
+     * Each modal is assigned text content, a title, header styling, and buttons with associated actions or dismiss behavior.
+     * The modals are used for various prompts and confirmations within the application, providing feedback and requiring user interaction.
+     *
+     * @return void
+     */
     public function createModals()
     {
         $this->dlgModal1 = new Bs\Modal($this);
-        $this->dlgModal1->Text = t('<p style="line-height: 25px; margin-bottom: -3px;">Kas oled kindel, et soovid seda kohatäidet kustutada?</p>');
-        $this->dlgModal1->Title = t('Warning');
-        $this->dlgModal1->HeaderClasses = 'btn-danger';
-        $this->dlgModal1->addButton(t("I accept"), "pass", false, false, null,
-            ['class' => 'btn btn-orange']);
-        $this->dlgModal1->addButton(t("I'll cancel"), "no-pass", false, false, null,
-            ['class' => 'btn btn-default']);
-        $this->dlgModal1->addAction(new Q\Event\DialogButton(), new Q\Action\AjaxControl($this, 'changeItem_Click'));
+        $this->dlgModal1->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">Currently, the status of this item cannot be changed as it is associated 
+                                    with submenu items or the parent menu item.</p>
+                                    <p style="line-height: 25px; margin-bottom: -3px;">To change the status of this item, you need to go to the menu manager 
+                                    and activate or deactivate it there.</p>');
+        $this->dlgModal1->Title = t("Tip");
+        $this->dlgModal1->HeaderClasses = 'btn-darkblue';
+        $this->dlgModal1->addButton(t("OK"), 'ok', false, false, null,
+            ['data-dismiss'=>'modal', 'class' => 'btn btn-orange']);
 
         $this->dlgModal2 = new Bs\Modal($this);
-        $this->dlgModal2->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">Praegu on tegemist alammenüüdega seotud peamenüü kirjega või alammenüü kirjetega ja
-                                siin ei saa selle kirje staatust muuta.</p><p style="line-height: 25px; margin-bottom: -3px;">
-                                Selle kirje staatuse muutmiseks pead minema menüü haldurisse ja selle aktiveerima või deaktiveerima.</p>');
+        $this->dlgModal2->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">The status of the placeholder for this menu item cannot be changed!</p>
+                                    <p style="line-height: 25px; margin-bottom: -3px;">Please remove any redirects from other menu tree items that point 
+                                    to this page!</p>');
         $this->dlgModal2->Title = t("Tip");
         $this->dlgModal2->HeaderClasses = 'btn-darkblue';
         $this->dlgModal2->addButton(t("OK"), 'ok', false, false, null,
+            ['data-dismiss'=>'modal', 'class' => 'btn btn-orange']);
+
+        $this->dlgModal3 = new Bs\Modal($this);
+        $this->dlgModal3->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">Are you sure you want to hide this placeholder?</p>
+                                <p style="line-height: 25px; margin-bottom: -3px;">You can make this group public again later!</p>');
+        $this->dlgModal3->Title = t('Question');
+        $this->dlgModal3->HeaderClasses = 'btn-danger';
+        $this->dlgModal3->addButton(t("I accept"), "pass", false, false, null,
+            ['class' => 'btn btn-orange']);
+        $this->dlgModal3->addCloseButton(t("I'll cancel"));
+        $this->dlgModal3->addAction(new Q\Event\DialogButton(), new Q\Action\AjaxControl($this, 'statusItem_Click'));
+        $this->dlgModal3->addAction(new Bs\Event\ModalHidden(), new Q\Action\AjaxControl($this, 'hideCancel_Click'));
+
+        $this->dlgModal4 = new Bs\Modal($this);
+        $this->dlgModal4->Title = t("Success");
+        $this->dlgModal4->HeaderClasses = 'btn-success';
+        $this->dlgModal4->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">This placeholder is now hidden!</p>');
+        $this->dlgModal4->addButton(t("OK"), 'ok', false, false, null,
+            ['data-dismiss'=>'modal', 'class' => 'btn btn-orange']);
+
+        $this->dlgModal5 = new Bs\Modal($this);
+        $this->dlgModal5->Title = t("Success");
+        $this->dlgModal5->HeaderClasses = 'btn-success';
+        $this->dlgModal5->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">This placeholder has now been made public!</p>');
+        $this->dlgModal5->addButton(t("OK"), 'ok', false, false, null,
             ['data-dismiss'=>'modal', 'class' => 'btn btn-orange']);
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
+    /**
+     * Retrieves a filtered array of content type names.
+     *
+     * This method accesses an array of content type names, removes the first entry,
+     * and then filters out any content types that are flagged as disabled in the
+     * extra column values array. The result is a list of enabled content type names.
+     *
+     * @return array An array of enabled content type names, with specific entries removed.
+     */
     public function lstContentTypeObject_GetItems()
     {
         $strContentTypeArray = ContentType::nameArray();
         unset($strContentTypeArray[1]);
+
+        $extraColumnValuesArray = ContentType::extraColumnValuesArray();
+        for ($i = 1; $i < count($extraColumnValuesArray); $i++) {
+            if ($extraColumnValuesArray[$i]['IsEnabled'] == 0) {
+                unset($strContentTypeArray[$i]);
+            }
+        }
         return $strContentTypeArray;
     }
 
+    /**
+     * Handles the click event for the lstStatus control.
+     *
+     * @param ActionParams $params The parameters associated with the action event.
+     * @return void
+     */
     public function lstStatus_Click(ActionParams $params)
     {
         if ($this->objMenu->ParentId || $this->objMenu->Right !== $this->objMenu->Left + 1) {
-            $this->dlgModal2->showDialogBox();
-        }
-    }
-
-    protected function lstClassNames_Change(ActionParams $params)
-    {
-        if ($this->objMenuContent->getContentType() !== $this->lstContentTypes->SelectedValue) {
             $this->dlgModal1->showDialogBox();
-        } else {
-            $this->objMenuContent->setContentType($this->lstContentTypes->SelectedValue);
+        } else if ($this->objMenuContent->SelectedPageLocked === 1) {
+            $this->dlgModal2->showDialogBox();
+            $this->updateInputFields();
+        } else if ($this->lstStatus->SelectedValue === 2) {
+            $this->dlgModal3->showDialogBox();
+        } else if ($this->lstStatus->SelectedValue === 1) {
+            $this->dlgModal5->showDialogBox();
+
+            $this->objMenuContent->setIsEnabled(1);
             $this->objMenuContent->save();
-            Application::redirect('menu_edit.php?id=' . $this->intId);
         }
     }
 
-    public function changeItem_Click(ActionParams $params)
+    /**
+     * Updates the input fields for the menu content status.
+     *
+     * @return void
+     */
+    protected function updateInputFields()
     {
-        if ($params->ActionParameter == "pass") {
-            $this->objMenuContent->setContentType($this->lstContentTypes->SelectedValue);
-            $this->objMenuContent->setRedirectUrl(null);
-            $this->objMenuContent->setHomelyUrl(null);
-            if ($this->objMenuContent->getRedirectUrl()) {
-                $this->objMenuContent->setIsEnabled($this->lstStatus->SelectedValue);
-            } else {
-                $this->objMenuContent->setIsEnabled(0);
-            }
-            $this->objMenuContent->save();
-
-            if ($this->objMenuContent->ContentType == 2) {
-                $objArticle = new Article();
-                $objArticle->setMenuContentId($this->objMenuContent->Id);
-                $objArticle->setPostDate(Q\QDateTime::Now());
-                $objArticle->save();
-
-                $objMetadata = new Metadata();
-                $objMetadata->setMenuContentId($this->objMenuContent->Id);
-                $objMetadata->save();
-            }
-
-            if ($this->objMenuContent->ContentType == 3) {
-                $objMetadata = new Metadata();
-                $objMetadata->setMenuContentId($this->objMenuContent->Id);
-                $objMetadata->save();
-            }
-
-            if ($this->objMenuContent->ContentType == 10) {
-                $objErrorPages = new ErrorPages();
-                $objErrorPages->setMenuContentId($this->objMenuContent->Id);
-                $objErrorPages->setPostDate(Q\QDateTime::Now());
-                $objErrorPages->save();
-            }
-            Application::redirect('menu_edit.php?id=' . $this->intId);
-        } else {
-            // does nothing
-        }
-        $this->dlgModal1->hideDialogBox();
+        $this->lstStatus->SelectedValue = $this->objMenuContent->getIsEnabled();
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////////////
-
-    public function btnMenuSave_Click(ActionParams $params)
+    /**
+     * Handles the click event for a status item. This method updates the status of
+     * a menu content item and manages the visibility of modal dialog boxes.
+     *
+     * @param ActionParams $params The parameters associated with the action triggering this method.
+     * @return void
+     */
+    public function statusItem_Click(ActionParams $params)
     {
-        if ($this->txtMenuText->Text) {
-            $this->objMenuContent->setMenuText($this->txtMenuText->Text);
-            $this->objMenuContent->setRedirectUrl('#');
-            $this->objMenuContent->setHomelyUrl(1);
-            $this->objMenuContent->setIsEnabled($this->lstStatus->SelectedValue);
-            $this->objMenuContent->save();
+        $this->lstStatus->SelectedValue = 2;
 
-            $this->txtExistingMenuText->Text = $this->objMenuContent->getMenuText();
+        $this->objMenuContent->setIsEnabled(2);
+        $this->objMenuContent->save();
 
-            if ($this->objMenuContent->getRedirectUrl()) {
-                $url = $this->objMenuContent->getRedirectUrl();
-                $this->txtTitleSlug->Text = Q\Html::renderLink($url, $url, null);
-                $this->txtTitleSlug->HtmlEntities = false;
-                $this->txtTitleSlug->setCssStyle('font-weight', 400);
-            } else {
-                $this->txtTitleSlug->Text = t('Uncompleted link...');
-                $this->txtTitleSlug->setCssStyle('color', '#999;');
-            }
-
-            if (!$this->objMenuContent->getMenuText()) {
-                $strSave_translate = t('Save');
-                $strSaveAndClose_translate = t('Save and close');
-                Application::executeJavaScript(sprintf("jQuery($this->strSaveButtonId).text('{$strSave_translate}');"));
-                Application::executeJavaScript(sprintf("jQuery($this->strSavingButtonId).text('{$strSaveAndClose_translate}');"));
-            } else {
-                $strUpdate_translate = t('Update');
-                $strUpdateAndClose_translate = t('Update and close');
-                Application::executeJavaScript(sprintf("jQuery($this->strSaveButtonId).text('{$strUpdate_translate}');"));
-                Application::executeJavaScript(sprintf("jQuery($this->strSavingButtonId).text('{$strUpdateAndClose_translate}');"));
-            }
-
-            $this->dlgToastr1->notify();
-        } else {
-            $this->dlgToastr2->notify();
-        }
+        $this->dlgModal3->hideDialogBox();
+        $this->dlgModal4->showDialogBox();
     }
 
-    public function btnMenuSaveClose_Click(ActionParams $params)
+    /**
+     * Handles the event when the cancel button is clicked. It sets the selected value of the status list
+     * based on the enabled state of the menu content.
+     *
+     * @param ActionParams $params The parameters associated with the action event.
+     * @return void
+     */
+    public function hideCancel_Click(ActionParams $params)
     {
-        if ($this->txtMenuText->Text) {
-            $this->objMenuContent->setMenuText($this->txtMenuText->Text);
-            $this->objMenuContent->setRedirectUrl('#');
-            $this->objMenuContent->setHomelyUrl(1);
-            $this->objMenuContent->setIsEnabled($this->lstStatus->SelectedValue);
-            $this->objMenuContent->save();
-
-            $this->redirectToListPage();
-        } else {
-            $this->dlgToastr2->notify();
-        }
+        $this->lstStatus->SelectedValue = $this->objMenuContent->getIsEnabled();
     }
-    
-    public function btnMenuCancel_Click(ActionParams $params)
+
+    /**
+     * Handles the click event for the 'Back' button, redirecting the user to the list page.
+     *
+     * @param ActionParams $params The parameters associated with the action event.
+     * @return void
+     */
+    public function btnBack_Click(ActionParams $params)
     {
         $this->redirectToListPage();
     }
 
+    /**
+     * Redirects the user to the menu manager list page.
+     *
+     * @return void
+     */
     protected function redirectToListPage()
     {
         Application::redirect('menu_manager.php');

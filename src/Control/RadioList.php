@@ -35,6 +35,7 @@ class RadioList extends RadioButtonList
     protected $strButtonGroupClass = "radio";
     protected $blnChecked;
     protected $strButtonStyle = Bs\Bootstrap::BUTTON_DEFAULT;
+
     /**
      * Group to which this radio button belongs
      * Groups determine the 'radio' behavior wherein you can select only one option out of all buttons in that group

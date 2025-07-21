@@ -18,7 +18,7 @@
 		// AMD. Register as an anonymous module.
 		define([
 			"jquery",
-			"jquery-ui/sortable"
+			"jquery-ui/ui/sortable"
 		], factory );
 	} else {
 
@@ -41,7 +41,7 @@
 			isAllowed: function() { return true; },
 			isTree: false,
 			listType: "ol",
-			maxLevels: 4,
+			maxLevels: 0,
 			protectRoot: false,
 			rootID: null,
 			rtl: false,
@@ -262,6 +262,12 @@
 			childLevels = this._getChildLevels(this.helper);
 			newList = document.createElement(o.listType);
 
+  		        // dragDirection object is required by jquery.ui.sortable.js 1.13+
+		       	this.dragDirection = {
+			      	vertical: this._getDragVerticalDirection(),
+				horizontal: this._getDragHorizontalDirection()
+		    	};
+			
 			//Rearrange
 			for (i = this.items.length - 1; i >= 0; i--) {
 
@@ -338,7 +344,7 @@
 									.addClass(o.expandedClass);
 
 								self.refreshPositions();
-								self._trigger("expand", event, self._uiHash());
+								self._trigger("expand", event, [self._uiHash(), itemElement]);
 							}, o.expandOnHover);
 						}
 					}
@@ -781,9 +787,7 @@
 											.parent(o.items)
 											.attr(o.attribute || "id"))
 											.match(o.expression || (/(.+)[-=_](.+)/));
-					//if (parentItem[0] === null) {
 					pid = parentItem[2];
-					//}
 				}
 
 				if (id) {

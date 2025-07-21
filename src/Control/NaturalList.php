@@ -76,7 +76,11 @@ class NaturalList extends ControlBase
         $this->registerFiles();
     }
 
-    /** @throws Caller */
+    /**
+     * Registers the necessary CSS and JavaScript files for the functionality.
+     *
+     * @return void
+     */
     protected function registerFiles()
     {
         $this->AddCssFile(QCUBED_BOOTSTRAP_CSS); // make sure they know
@@ -86,28 +90,19 @@ class NaturalList extends ControlBase
     }
 
     /**
-     * @return bool
+     * Validates the current context.
+     *
+     * @return bool Always returns true indicating validation success.
      */
     public function validate() {return true;}
 
     public function parsePostData() {}
 
     /**
-     * Set the node params callback. The callback should be of the form:
-     * func($objItem)
-     * The callback will be give the raw node from the data source, and the item's index.
-     * The function should return a key/value array with the following possible items:
-     * id - the id for the node tag
-     * parent_id - the parent_id for the node tag
-     * depth - the depth for the node tag
-     * left - the left for the node tag
-     * right - the right for the node tag
-     * menu_text - the menu_text for the node tag
-     * status - the status for the node tag
+     * Registers a callback to create node parameters.
      *
-     * The callback is a callable, so can be of the form [$objControl, "func"]
-     *
-     * @param callable $callback
+     * @param callable $callback A function to create node parameters.
+     * @return void
      */
     public function createNodeParams(callable $callback)
     {
@@ -115,12 +110,11 @@ class NaturalList extends ControlBase
     }
 
     /**
-     * Uses HTML callback to get each loop in the original array. Relies on the NodeParamsCallback
-     * to return information on how to draw each node.
+     * Retrieves raw item data based on the provided callback.
      *
-     * @param mixed $objItem
-     * @return string
-     * @throws \Exception
+     * @param mixed $objItem The item to retrieve data for.
+     * @return array The raw item data.
+     * @throws \Exception If the nodeParamsCallback is not provided.
      */
     public function getItemRaw($objItem)
     {
@@ -172,7 +166,10 @@ class NaturalList extends ControlBase
     }
 
     /**
-     * Fix up possible embedded reference to the form.
+     * Sets the node parameters callback to a state suitable for serialization
+     * and then calls the parent's sleep method.
+     *
+     * @return void
      */
     public function sleep()
     {
@@ -181,8 +178,11 @@ class NaturalList extends ControlBase
     }
 
     /**
-     * The object has been unserialized, so fix up pointers to embedded objects.
-     * @param FormBase $objForm
+     * Restores the node parameters callback from its serialized state and then
+     * calls the parent's wakeup method with the given FormBase object.
+     *
+     * @param FormBase $objForm The form object that is passed to the parent's wakeup method.
+     * @return void
      */
     public function wakeup(FormBase $objForm)
     {
@@ -190,48 +190,63 @@ class NaturalList extends ControlBase
         $this->nodeParamsCallback = Q\Project\Control\ControlBase::wakeupHelper($objForm, $this->nodeParamsCallback);
     }
 
-    /**
-     * @param $arrParams
-     * @param $arrObjects
-     * @return string
-     */
     protected function renderMenuTree($arrParams)
     {
         $strHtml = '';
+        $this->intCurrentDepth = 0; // Algne sügavus
 
-        for ($i = 0; $i < count($arrParams); $i++)
-        {
+        for ($i = 0; $i < count($arrParams); $i++) {
+            // We are loading the data of the currently active node
             $this->intId = $arrParams[$i]['id'];
             $this->intParentId = $arrParams[$i]['parent_id'];
             $this->intDepth = $arrParams[$i]['depth'];
-            $this->intLeft = $arrParams[$i]['left'];
-            $this->intRight = $arrParams[$i]['right'];
             $this->strMenuText = $arrParams[$i]['menu_text'];
             $this->intStatus = $arrParams[$i]['status'];
 
-            if (!$this->intStatus == 0) {
-                if ($this->intDepth == $this->intCurrentDepth) {
-                    if ($this->intCounter > 0)
-                        $strHtml .= '</li>';
-                } elseif ($this->intDepth > $this->intCurrentDepth) {
-                    $strHtml .= _nl() . '<' . $this->strTagName . '>';
-                    $this->intCurrentDepth = $this->intCurrentDepth + ($this->intDepth - $this->intCurrentDepth);
-                } elseif ($this->intDepth < $this->intCurrentDepth) {
-                    $strHtml .= str_repeat('</li>' . _nl() . '</' . $this->strTagName . '>', $this->intCurrentDepth - $this->intDepth) . '</li>';
-                    $this->intCurrentDepth = $this->intCurrentDepth - ($this->intCurrentDepth - $this->intDepth);
-                }
-                $strHtml .= _nl() . '<li id="' . $this->strControlId . '_' . $this->intId . '">';
-                $strHtml .= $this->strMenuText;
-                ++$this->intCounter;
+            // We avoid statuses that are not recommended to be shown
+            if ($this->intStatus === 2 || $this->intStatus === 3) {
+                continue;
             }
+
+            // As the depth increases, we close the previous <li> and open a new <ol> or <ul>
+            if ($this->intDepth > $this->intCurrentDepth) {
+                $strHtml .= _nl() . '<' . $this->strTagName . '>'; // We open a new <ol> or <ul>
+            }
+
+            //As the depth decreases, we close the remaining <li> and <ol> or <ul> accordingly
+            while ($this->intDepth < $this->intCurrentDepth) {
+                $strHtml .= '</li>' . _nl() . '</' . $this->strTagName . '>';
+                $this->intCurrentDepth--; // We are reducing the current depth
+            }
+
+            // At the same depth, we close the previous <li> if it exists
+            if ($this->intCounter > 0 && $this->intDepth === $this->intCurrentDepth) {
+                $strHtml .= '</li>';
+            }
+
+            // We create a new <li> element with its content and attributes
+            $strHtml .= _nl() . '<li id="' . $this->strControlId . '_' . $this->intId . '">';
+            $strHtml .= $this->strMenuText;
+
+            // We increase the node counter and adjust the current depth
+            ++$this->intCounter;
+            $this->intCurrentDepth = $this->intDepth;
         }
-        $strHtml .= str_repeat('</li>' . _nl() . '</' . $this->strTagName . '>', $this->intDepth) . '</li>';
+
+        // Finally, we close all remaining open levels
+        while ($this->intCurrentDepth > 0) {
+            $strHtml .= '</li>' . _nl() . '</' . $this->strTagName . '>';
+            $this->intCurrentDepth--;
+        }
+
         return $strHtml;
     }
 
     /**
-     * Returns the HTML for the control.
-     * @return string
+     * Binds data to the control, processes the data source, renders the menu tree,
+     * and returns the generated HTML string for the control.
+     *
+     * @return string The generated HTML string for the control.
      */
     protected function getControlHtml()
     {
@@ -258,7 +273,11 @@ class NaturalList extends ControlBase
     }
 
     /**
-     * @throws Caller
+     * Executes the data binder if applicable and the data source is not set,
+     * and the control has not been rendered yet. Any exception caught during
+     * the execution will have its offset incremented and rethrown.
+     *
+     * @return void
      */
     public function dataBind()
     {
@@ -273,6 +292,11 @@ class NaturalList extends ControlBase
         }
     }
 
+    /**
+     * Creates a jQuery widget using the provided parameters.
+     *
+     * @return void
+     */
     public function makeJqWidget()
     {}
 

@@ -26,6 +26,7 @@ use QCubed\Type;
  * @property integer $Status
  * @property string $RedirectUrl
  * @property integer $HomelyUrl
+ * @property string $ExternalUrl
  * @property string $TargetType
  * @property string $TagName
  * @property string $TagStyle
@@ -67,9 +68,10 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
     protected $strRedirectUrl;
     /** @var int HomelyUrl */
     protected $intHomelyUrl;
+    /** @var string InternalUrl */
+    protected $strExternalUrl;
     /** @var int TargetType */
     protected $strTargetType;
-
 
     /**
      * SmartMenus constructor.
@@ -87,7 +89,11 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
         $this->registerFiles();
     }
 
-    /** @throws Caller */
+    /**
+     * Register required CSS and JavaScript files for the module.
+     *
+     * @return void
+     */
     protected function registerFiles()
     {
         $this->AddCssFile(QCUBED_BOOTSTRAP_CSS); // make sure they know
@@ -98,29 +104,25 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
         $this->addJavascriptFile(QCUBED_NESTEDSORTABLE_ASSETS_URL . "/smartmenus-1.1.0/addons/bootstrap/jquery.smartmenus.bootstrap.js");
     }
 
+    /**
+     * Validates the current state.
+     *
+     * @return bool Always returns true.
+     */
     public function validate() {return true;}
 
+    /**
+     * Parses the incoming POST data for processing.
+     *
+     * @return void
+     */
     public function parsePostData() {}
 
     /**
-     * Set the node params callback. The callback should be of the form:
-     * func($objItem)
-     * The callback will be give the raw node from the data source, and the item's index.
-     * The function should return a key/value array with the following possible items:
-     * id - the id for the node tag
-     * parent_id - the parent_id for the node tag
-     * depth - the depth for the node tag
-     * left - the left for the node tag
-     * right - the right for the node tag
-     * menu_text - the menu_text for the node tag
-     * status - the status for the node tag
-     * redirect_url - the redirect_url for the node tag
-     * homely_url - the is_redirect for the node tag
-     * target_type - the target_type for the node tag
+     * Sets the node parameters callback.
      *
-     * The callback is a callable, so can be of the form [$objControl, "func"]
-     *
-     * @param callable $callback
+     * @param callable $callback The callback to set for node parameters.
+     * @return void
      */
     public function createNodeParams(callable $callback)
     {
@@ -128,12 +130,12 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
     }
 
     /**
-     * Uses HTML callback to get each loop in the original array. Relies on the NodeParamsCallback
-     * to return information on how to draw each node.
+     * Retrieves raw item parameters using a callback function.
      *
-     * @param mixed $objItem
-     * @return string
-     * @throws \Exception
+     * @param mixed $objItem The item required to fetch its parameters.
+     * @return array The raw parameters of the item including 'id', 'parent_id', 'depth',
+     *               'left', 'right', 'menu_text', 'status', 'redirect_url', 'homely_url', 'target_type'.
+     * @throws \Exception If the nodeParamsCallback is not set.
      */
     public function getItemRaw($objItem)
     {
@@ -178,6 +180,10 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
         if (isset($params['homely_url'])) {
             $intHomelyUrl = $params['homely_url'];
         }
+        $strExternalUrl = '';
+        if (isset($params['external_url'])) {
+            $strExternalUrl = $params['external_url'];
+        }
         $strTargetType = '';
         if (isset($params['target_type'])) {
             $strTargetType = $params['target_type'];
@@ -193,13 +199,18 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
             'status' => $intStatus,
             'redirect_url' => $strRedirectUrl,
             'homely_url' => $intHomelyUrl,
+            'external_url' => $strExternalUrl,
             'target_type' => $strTargetType
             ];
         return $vars;
     }
 
     /**
-     * Fix up possible embedded reference to the form.
+     * Puts the current object into a sleep state by handling the node parameters callback
+     * through the ControlBase's sleepHelper method and then invoking the parent's sleep
+     * method.
+     *
+     * @return void
      */
     public function sleep()
     {
@@ -208,8 +219,12 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
     }
 
     /**
-     * The object has been unserialized, so fix up pointers to embedded objects.
-     * @param FormBase $objForm
+     * Restores the state of the current object by invoking the parent's wakeup method
+     * with the given FormBase object and then calling ControlBase's wakeupHelper method
+     * to manage the node parameters callback.
+     *
+     * @param FormBase $objForm The form object used to restore the state of the current object.
+     * @return void
      */
     public function wakeup(FormBase $objForm)
     {
@@ -217,10 +232,14 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
         $this->nodeParamsCallback = Q\Project\Control\ControlBase::wakeupHelper($objForm, $this->nodeParamsCallback);
     }
 
-
     /**
-     * @param $arrParams
-     * @return string
+     * Generates an HTML representation of a menu tree based on an array of menu parameters.
+     *
+     * @param array $arrParams An array containing menu parameters. Each element in the array should be an
+     *                         associative array with the following keys: 'id', 'parent_id', 'depth', 'left',
+     *                         'right', 'menu_text', 'status', 'redirect_url', 'homely_url', 'external_url', 'target_type'.
+     *
+     * @return string HTML string representing the menu tree.
      */
     protected function renderMenuTree($arrParams)
     {
@@ -237,59 +256,54 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
             $this->intStatus = $arrParams[$i]['status'];
             $this->strRedirectUrl = $arrParams[$i]['redirect_url'];
             $this->intHomelyUrl = $arrParams[$i]['homely_url'];
+            $this->strExternalUrl = $arrParams[$i]['external_url'];
             $this->strTargetType = $arrParams[$i]['target_type'];
 
-            if (!$this->intStatus == 0) {
-                if ($this->intDepth == $this->intCurrentDepth) {
-                    if ($this->intCounter > 0)
-                        $strHtml .= '</li>';
-                } elseif ($this->intDepth > $this->intCurrentDepth) {
-                    $strHtml .= _nl() . '<' . $this->strTagName . ' class="' . $this->strTagStyle . '">';
-                    $this->intCurrentDepth = $this->intCurrentDepth + ($this->intDepth - $this->intCurrentDepth);
-                } elseif ($this->intDepth < $this->intCurrentDepth) {
-                    $strHtml .= str_repeat('</li>' . _nl() . '</' . $this->strTagName . '>', $this->intCurrentDepth - $this->intDepth) . '</li>';
-                    $this->intCurrentDepth = $this->intCurrentDepth - ($this->intCurrentDepth - $this->intDepth);
-                }
-
-                $url = isset($_SERVER['HTTPS']) ? "https" : "http" . '://' . $_SERVER['HTTP_HOST'] . QCUBED_URL_PREFIX;
-                $target = ' target="' . $this->strTargetType . '"';
-
-                if ($this->Right !== $this->Left + 1) {
-                    $strHtml .= _nl() . '<li id="' . $this->ControlId . '_' . $this->intId . '">';
-                    if ($this->intHomelyUrl) {
-                        $strHtml .= '<a href="' . $url . $this->strRedirectUrl . '">';
-                    } elseif (strlen($this->strTargetType)) {
-                        $strHtml .= '<a href="' . $this->strRedirectUrl . '"' . $target . '>';
-                    } else {
-                        $strHtml .= '<a href="' . $this->strRedirectUrl . '">';
-                    }
-                    $strHtml .= $this->strMenuText;
-                    $strHtml .= '<span class="caret"></span></a>';
-                } else {
-                    $strHtml .= _nl() . '<li id="' . $this->ControlId . '_' . $this->intId . '">';
-                    if ($this->intHomelyUrl) {
-                        $strHtml .= '<a href="' . $url . $this->strRedirectUrl . '">';
-                    } elseif (strlen($this->strTargetType)) {
-                        $strHtml .= '<a href="' . $this->strRedirectUrl . '"' . $target . '>';
-                    } else {
-                        $strHtml .= '<a href="' . $this->strRedirectUrl . '">';
-                    }
-                    $strHtml .= $this->strMenuText;
-                    $strHtml .= '</a>';
-                }
-                ++$this->intCounter;
+            if ($this->intStatus == 2 || $this->intStatus == 3) {
+                continue;
             }
+
+            $target = '';
+            if (!empty($this->strTargetType)) {
+                $target = ' target="' . $this->strTargetType . '"';
+            }
+
+            // We determine the correct link
+            $link = ($this->intHomelyUrl === 1) ? $this->strRedirectUrl : $this->strExternalUrl;
+
+            if ($this->intDepth == $this->intCurrentDepth) {
+                if ($this->intCounter > 0) $strHtml .= '</li>';
+            } elseif ($this->intDepth > $this->intCurrentDepth) {
+                $strHtml .= _nl() . '<' . $this->strTagName . ' class="' . $this->strTagStyle . '">';
+                $this->intCurrentDepth = $this->intCurrentDepth + ($this->intDepth - $this->intCurrentDepth);
+            } elseif ($this->intDepth < $this->intCurrentDepth) {
+                $strHtml .= str_repeat('</li>' . _nl() . '</' . $this->strTagName . '>', $this->intCurrentDepth - $this->intDepth) . '</li>';
+                $this->intCurrentDepth = $this->intCurrentDepth - ($this->intCurrentDepth - $this->intDepth);
+            }
+
+            $strHtml .= _nl() . '<li id="' . $this->ControlId . '_' . $this->intId . '">';
+            $strHtml .= '<a href="' . $link . '"' . $target . '>';
+            $strHtml .= $this->strMenuText;
+
+            if ($this->Right !== $this->Left + 1) {
+                $strHtml .= '<span class="caret"></span></a>';
+            }
+
+            $strHtml .= '</a>';
+            ++$this->intCounter;
         }
+
         $strHtml .= str_repeat('</li>' . _nl() . '</' . $this->strTagName . '>', $this->intDepth) . '</li>';
+
         return $strHtml;
     }
 
     /**
-     * Returns the HTML for the control.
+     * Generates the HTML for the control by first binding data to the source,
+     * processing each data item, rendering a menu tree, and finally wrapping
+     * the rendered content in a specified HTML tag.
      *
-     * @return string
-     * @throws Caller
-     * @throws \Exception
+     * @return string The generated HTML for the control.
      */
     protected function getControlHtml()
     {
@@ -315,7 +329,11 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
     }
 
     /**
-     * @throws Caller
+     * Binds the data to the object by running the DataBinder if the data source is null,
+     * the object has a DataBinder, and has not been rendered. If the DataBinder call fails,
+     * it catches the exception, increments its offset, and rethrows it.
+     *
+     * @return void
      */
     public function dataBind()
     {
@@ -330,15 +348,21 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
         }
     }
 
+    /**
+     * Initializes the JQuery widget for the control. It sets up event listeners for
+     * user interaction and executes necessary JavaScript commands to ensure proper
+     * functionality of the sidebar menu and link activation.
+     *
+     * @return void
+     */
     public function makeJqWidget()
     {
         /**
          * To draw or test the menu, the js code is temporarily placed here at the end: "return false;".
-         * This part of the code usually needs to be removed for the links to work properly.
+         * This part of the code usually needs to be changed to "return true;" for the links to work properly.
          */
         Application::executeControlCommand($this->ControlId, 'on', 'click', 'li',
-            new Js\Closure("jQuery(this).trigger('sidebarselect', this.id);
-            return false;"),
+            new Js\Closure("jQuery(this).trigger('sidebarselect', this.id); return true;"),
             Application::PRIORITY_HIGH);
 
         /**
@@ -373,6 +397,7 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
             case "Status": return $this->intStatus;
             case "RedirectUrl": return $this->strRedirectUrl;
             case "HomelyUrl": return $this->intHomelyUrl;
+            case "ExternalUrl": return $this->strExternalUrl;
             case "TargetType": return $this->strTargetType;
             case "TagName": return $this->strTagName;
             case "TagStyle": return $this->strTagStyle;
@@ -480,6 +505,15 @@ class SmartMenus extends \QCubed\Project\Control\ControlBase
                 try {
                     $this->blnModified = true;
                     $this->intHomelyUrl = Type::Cast($mixValue, Type::INTEGER);
+                } catch (InvalidCast $objExc) {
+                    $objExc->IncrementOffset();
+                    throw $objExc;
+                }
+                break;
+            case "ExternalUrl":
+                try {
+                    $this->blnModified = true;
+                    $this->strExternalUrl = Type::Cast($mixValue, Type::STRING);
                 } catch (InvalidCast $objExc) {
                     $objExc->IncrementOffset();
                     throw $objExc;

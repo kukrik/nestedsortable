@@ -1,16 +1,24 @@
 <?php
 require('qcubed.inc.php');
+
 require('classes/PageEditPanel.class.php');
-require('classes/PageMetaDataPanel.class.php');
+
 require ('classes/ArticleEditPanel.class.php');
 require ('classes/NewsEditPanel.class.php');
-//require (classes/'GalleryEditPanel.class.php');
-//require ('classes/EventsCalendarEditPanel.class.php');
-//require ('classes/SportsCalendarEditPanel.class.php');
+require ('classes/GalleryEditPanel.class.php');
+require ('classes/EventsCalendarEditPanel.class.php');
+require ('classes/SportsCalendarEditPanel.class.php');
 require ('classes/InternalPageEditPanel.class.php');
 require ('classes/RedirectingEditPanel.class.php');
 require ('classes/PlaceholderEditPanel.class.php');
-require ('classes/ErrorPageEditPanel.class.php');
+require ('classes/SportsAreasEditPanel.class.php');
+require ('classes/BoardEditPanel.class.php');
+require ('classes/MembersEditPanel.class.php');
+require ('classes/VideosEditPanel.class.php');
+require ('classes/StatisticsEditPanel.class.php');
+require ('classes/LinksEditPanel.class.php');
+
+require('classes/PageMetaDataPanel.class.php');
 
 error_reporting(E_ALL); // Error engine - always ON!
 ini_set('display_errors', TRUE); // Error display - OFF in production env or real server
@@ -29,11 +37,6 @@ use QCubed\Project\Application;
 class SampleForm extends Form
 {
     protected $nav;
-
-    protected $pnlPage;
-    protected $pnlContent;
-    protected $pnlMetadata;
-
     protected $objMenuContent;
 
     protected function formCreate()
@@ -44,23 +47,30 @@ class SampleForm extends Form
         $this->objMenuContent = MenuContent::load($intId);
 
         $this->nav = new Q\Plugin\Control\Tabs($this);
+        //$this->nav = new Bs\Tabs($this);
         $this->nav->addCssClass('tabbable tabbable-custom');
 
         if ($this->objMenuContent->ContentType == null) {
-            $this->pnlPage = new PageEditPanel($this->nav);
-            $this->pnlPage->Name = t('Configure page');
+            $page = new PageEditPanel($this->nav);
+            $page->Name = t('Configure page');
+
+        } else if ($this->objMenuContent->ContentType == 14 ||
+            $this->objMenuContent->ContentType == 15 ||
+            $this->objMenuContent->ContentType == 16) {
+
+            $page = new StatisticsEditPanel($this->nav);
+            $page->Name = t('Edit statistics');
         } else {
             $objPanelName = ContentType::toClassNames($this->objMenuContent->ContentType);
-            $this->pnlContent = new $objPanelName($this->nav);
-            $this->pnlContent->Name = ContentType::toTabsText($this->objMenuContent->ContentType);
+            $page = new $objPanelName($this->nav);
+            $page->Name = ContentType::toTabsText($this->objMenuContent->ContentType);
 
-            if ($this->objMenuContent->ContentType !== 7 // InternalPageEditPanel
-                && $this->objMenuContent->ContentType !== 8 // RedirectingEditPanel
-                && $this->objMenuContent->ContentType !== 9 // PlaceholderEditPanel
-                && $this->objMenuContent->ContentType !== 10 // ErrorPageEditPanel
+            if ($this->objMenuContent->ContentType !== 7 && // InternalPageEditPanel
+                $this->objMenuContent->ContentType !== 8 && // RedirectingEditPanel
+                $this->objMenuContent->ContentType !== 9 // PlaceholderEditPanel
             ) {
-                $this->pnlMetadata = new PageMetaDataPanel($this->nav);
-                $this->pnlMetadata->Name = t('Metadata');
+                $page = new PageMetaDataPanel($this->nav);
+                $page->Name = t('Metadata');
             }
         }
     }

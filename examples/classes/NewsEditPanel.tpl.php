@@ -19,6 +19,12 @@
             </div>
         </div>
         <div class="form-group">
+            <?= _r($this->lblGroupTitle); ?>
+            <div class="col-md-5">
+                <?= _r($this->btnGoToNewsSettings); ?>
+            </div>
+        </div>
+        <div class="form-group">
             <?= _r($this->lblStatus); ?>
             <div class="col-md-9">
                 <?= _r($this->lstStatus); ?>
@@ -32,16 +38,11 @@
         </div>
         <div class="row">
             <div class="col-md-offset-3 col-md-9">
-                <?= _r($this->btnGoTo); ?>
+                <?= _r($this->btnGoToMenu); ?>
+                <?= _r($this->btnGoToList); ?>
             </div>
         </div>
-        <div class="form-actions fluid">
-            <div class="col-md-offset-3 col-md-12">
-                <?= _r($this->btnSave); ?>
-                <?= _r($this->btnSaving); ?>
-                <?= _r($this->btnCancel); ?>
-            </div>
-        </div>
+        <div class="form-actions fluid" style="height: 74px;"></div>
     </div>
 </div>
 

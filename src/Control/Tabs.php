@@ -4,21 +4,19 @@ namespace QCubed\Plugin\Control;
 
 use QCubed\Control\ControlBase;
 use QCubed\Exception\Caller;
-use QCubed\Exception\InvalidCast;
+//use QCubed\Exception\InvalidCast;
 use QCubed\QString;
-use QCubed\Type;
+//use QCubed\Type;
 use QCubed\Html;
+use QCubed\Project\Application;
 
 /**
-*@property string $Template Path to the HTML template (.tpl.php) file (applicable in case a template is being used for Render)
-*/
+ * @property string $Template Path to the HTML template (.tpl.php) file (applicable in case a template is being used for Render)
+ */
 
 class Tabs extends \QCubed\Project\Control\ControlBase
 {
     protected $strSelectedId;
-    /** @var string Path to the HTML template (.tpl.php) file (applicable in case a template is being used for Render) */
-    protected $strTemplate = null;
-
 
     public function validate()
     {
@@ -61,17 +59,6 @@ class Tabs extends \QCubed\Project\Control\ControlBase
             }
             $strItemHtml = $objChildControl->render(false);
 
-            $strTemplateEvaluated = '';
-            if ($this->strTemplate) {
-                global $_CONTROL;
-                $objCurrentControl = $_CONTROL;
-                $_CONTROL = $this;
-                $strTemplateEvaluated = $this->evaluateTemplate($this->strTemplate);
-                $_CONTROL = $objCurrentControl;
-            }
-
-            $strItemHtml .= $strTemplateEvaluated;
-
             $strInnerHtml .= Html::renderTag('div',
                 [
                     'role' => 'tabpanel',
@@ -99,65 +86,25 @@ class Tabs extends \QCubed\Project\Control\ControlBase
         }
     }
 
-    /**
-     * PHP __get magic method implementation
-     * @param string $strName Name of the property
-     *
-     * @return mixed
-     * @throws Caller
-     */
-    public function __get($strName)
+    public function getEndScript()
     {
-        switch ($strName) {
-            case "Template": return $this->strTemplate;
+        Application::executeJavaScript(sprintf("jQuery(function(){
+  // Change tab on load
+  var hash = window.location.hash;
+  hash && jQuery('ul.nav a[href=\"' + hash + '\"]').tab('show');
 
-            default:
-                try {
-                    return parent::__get($strName);
-                } catch (Caller $objExc) {
-                    $objExc->incrementOffset();
-                    throw $objExc;
-                }
-        }
-    }
+  jQuery('.nav-tabs a').click(function (e) {
+    jQuery(this).tab('show');
+    var scrollmem = jQuery('body').scrollTop();
+    window.location.hash = this.hash;
+    jQuery('html,body').scrollTop(scrollmem);
+  });
 
-    /**
-     * PHP __set magic method implementation
-     * @param string $strName Property Name
-     * @param string $mixValue Property Value
-     *
-     * @throws Caller|InvalidCast
-     * @return void
-     */
-    public function __set($strName, $mixValue)
-    {
-        switch ($strName) {
-            case "Template":
-                try {
-                    $this->blnModified = true;
-                    if ($mixValue) {
-                        if (file_exists($strPath = $this->getTemplatePath($mixValue))) {
-                            $this->strTemplate = Type::cast($strPath, Type::STRING);
-                        } else {
-                            throw new Caller('Could not find template file: ' . $mixValue);
-                        }
-                    } else {
-                        $this->strTemplate = null;
-                    }
-                    break;
-                } catch (InvalidCast $objExc) {
-                    $objExc->incrementOffset();
-                    throw $objExc;
-                }
-
-            default:
-                try {
-                    parent::__set($strName, $mixValue);
-                } catch (Caller $objExc) {
-                    $objExc->incrementOffset();
-                    throw $objExc;
-                }
-                break;
-        }
+  // Change tab on hashchange
+  window.addEventListener('hashchange', function() {
+    var changedHash = window.location.hash;
+    changedHash && jQuery('ul.nav a[href=\"' + changedHash + '\"]').tab('show');
+  }, false);})
+  "));
     }
 }

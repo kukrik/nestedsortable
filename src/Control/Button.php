@@ -24,7 +24,7 @@ use QCubed\Type;
  *
  * Here has been implemented Bootstrap tooltip function. Where appropriate, you can activate Tooltip as follows:
  * $objButton->Tip = true;
- * $objButton->ToolTip = t('$strtext');
+ * $objButton->ToolTip = t('Text');
  *
  * @property string $Glyph .......
  * @property boolean $Tip .......

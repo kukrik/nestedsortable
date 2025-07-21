@@ -20,8 +20,6 @@
         </div>
         <div class="form-actions fluid">
             <div class="col-md-offset-3 col-md-12">
-                <?= _r($this->btnSave); ?>
-                <?= _r($this->btnSaving); ?>
                 <?= _r($this->btnCancel); ?>
             </div>
         </div>

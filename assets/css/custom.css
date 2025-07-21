@@ -1,0 +1,23 @@
+.scroll-wrapper {
+    height: calc(100vh - 160px); /* Default value. Overwite this if you want. // 160 */
+    width: 100%; /* Default value. Overwite this if you want. */
+}
+
+.dialog-wrapper {
+    min-height: calc(100vh - 135px); /* Default value. Overwite this if you want. // 135 */
+    width: 100%; /* Default value. Overwite this if you want. */
+}
+
+.upload-wrapper {
+    min-height: calc(100vh - 160px); /* Default value. Overwite this if you want. // 160 */
+    width: 100%; /* Default value. Overwite this if you want. */
+}
+
+.dialog-upload-wrapper {
+   /* min-height: calc(100vh - 130px); !* Default value. Overwite this if you want. // 130 *!
+    width: 100%; !* Default value. Overwite this if you want. *!*/
+}
+
+.slimScrollBar {
+    background: rgba(0, 0, 0, 0.50) !important;
+}

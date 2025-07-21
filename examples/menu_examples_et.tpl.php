@@ -17,7 +17,6 @@
                     <div class="panel-body">
                         <h3 class="panel-title" style="margin-bottom: -10px;">Menüüpuu näited</h3>
                         <div class="panel-examples">
-
                             <div class="row">
                                 <div class="col-md-12">
                                     <p>Need näited näitavad, kuidas saab erinevaid menüüpuid näidata igas saidis, kui
@@ -42,7 +41,6 @@
                                     <?= _r($this->tblList); ?>
                                 </div>
                             </div>
-
                             <div class="row">
                                 <div class="col-md-12" style="margin-bottom: 10px;">
                                     <h4>Näide: Bootstrap Navbar</h4>
@@ -72,7 +70,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="row">
                                 <div class="col-md-12" style="margin-bottom: 10px;">
                                     <h4>Näide: SmartMenus Bootstrap Addon (Navbar)</h4>
@@ -103,7 +100,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="row">
                                 <div class="col-md-12" style="margin-bottom: 10px;">
                                     <h4>Näide: Bootstrap Navbar'i kasutamine koos SideBar-ga</h4>
@@ -118,11 +114,14 @@
                                     <?= _r($this->sideMenu); ?>
                                 </div>
                             </div>
-
                             <div class="row">
-                                <div class="col-md-3" style="width: 23%; margin-left: 4px;">
+                                <div class="col-md-3">
                                     <div id="sidebar">
-                                        <?= _r($this->tblSubMenu); ?>
+                                        <nav class="submenu">
+                                            <ul>
+                                                <?= _r($this->tblSubMenu); ?>
+                                            </ul>
+                                        </nav>
                                     </div>
                                 </div>
                                 <div class="col-md-9" style="border: #ccc 2px dotted; min-height: 320px;">
@@ -141,7 +140,6 @@
                                         Dolorum complectitur at mel. His corrumpit expetendis in, ut usu posse movet,
                                         praesent dignissim has no.</p>
                                 </div>
-
                                 <div class="row">
                                     <div class="col-md-12" style="margin-bottom: 20px;">
                                         <h4>Näide: NestedSidebar</h4>
@@ -151,9 +149,8 @@
                                             javascripti. See on lihtsustatud näide, arendajatel on võimalik seda täiustada kas css-i või javascripti või php poolel.</p>
                                     </div>
                                 </div>
-
                                 <div class="row">
-                                    <div class="col-md-3" style="width: 23%; margin-left: 4px;">
+                                    <div class="col-md-3">
                                         <div id="nestedmenu">
                                             <?= _r($this->tblNestedMenu); ?>
                                         </div>
@@ -175,7 +172,6 @@
                                             praesent dignissim has no.</p>
                                     </div>
                                 </div>
-
                                 <div class="row">
                                     <div class="col-md-12" style="margin-top: 10px; margin-bottom: 10px;">
                                         <h4>Kokkuvõte</h4>
@@ -185,8 +181,6 @@
                                         Iga arendaja valib ise.</p>
                                     </div>
                                 </div>
-
-
                             </div>
                             <!-- MENU CONTAINER BEGIN -->
                         </div>

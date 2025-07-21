@@ -28,6 +28,7 @@ use QCubed\Html;
  * @property integer $Status
  * @property string $RedirectUrl
  * @property integer $HomelyUrl
+ * @property string $ExternalUrl
  * @property string $TargetType
  * @property string $SubTagName
  * @property string $SubTagClass
@@ -71,6 +72,8 @@ class NestedSidebar extends \QCubed\Control\Panel
     protected $strRedirectUrl = null;
     /** @var int IsHomelyUrl */
     protected $intHomelyUrl = null;
+    /** @var string InternalUrl */
+    protected $strExternalUrl = null;
     /** @var int TargetType */
     protected $strTargetType = null;
 
@@ -91,7 +94,11 @@ class NestedSidebar extends \QCubed\Control\Panel
         $this->registerFiles();
     }
 
-    /** @throws Caller */
+    /**
+     * Registers necessary CSS and JavaScript files for the application.
+     *
+     * @return void
+     */
     protected function registerFiles()
     {
         $this->AddCssFile(QCUBED_BOOTSTRAP_CSS); // make sure they know
@@ -99,32 +106,20 @@ class NestedSidebar extends \QCubed\Control\Panel
         Bs\Bootstrap::loadJS($this);
     }
 
+    /**
+     * Validates the input or entity.
+     *
+     * @return bool Returns true if the validation is successful.
+     */
     public function validate() {return true;}
 
     public function parsePostData() {}
 
     /**
-     * Set the node params callback. The callback should be of the form:
-     * func($objItem)
-     * The callback will be give the raw node from the data source, and the item's index.
-     * The function should return a key/value array with the following possible items:
+     * Sets the callback function for node parameters.
      *
-     * id - the id for the node tag
-     * parent_id - the parent_id for the node tag
-     * depth - the depth for the node tag
-     * left - the left for the node tag
-     * right - the right for the node tag
-     * menu_text - the menu_text for the node tag
-     * redirect_url - the redirect_url for the node tag
-     * is_redirect - the is_redirect for the node tag
-     * selected_page_id - the selected_page_id for the node tag
-     * content_type_object - the content_type_object for the node tag
-     * content_type - the content_type for the node tag
-     * status - the status for the node tag for the node tag
-     *
-     * The callback is a callable, so can be of the form [$objControl, "func"]
-     *
-     * @param callable $callback
+     * @param callable $callback The callback function to set.
+     * @return void
      */
     public function createNodeParams(callable $callback)
     {
@@ -132,12 +127,11 @@ class NestedSidebar extends \QCubed\Control\Panel
     }
 
     /**
-     * Uses HTML callback to get each loop in the original array. Relies on the NodeParamsCallback
-     * to return information on how to draw each node.
+     * Retrieves raw item data based on the provided object item.
      *
-     * @param mixed $objItem
-     * @return string
-     * @throws \Exception
+     * @param mixed $objItem The item object to process.
+     * @return array An associative array containing the processed item data.
+     * @throws \Exception If the nodeParamsCallback is not provided.
      */
     public function getItemRaw($objItem)
     {
@@ -182,6 +176,10 @@ class NestedSidebar extends \QCubed\Control\Panel
         if (isset($params['homely_url'])) {
             $intHomelyUrl = $params['homely_url'];
         }
+        $strExternalUrl = '';
+        if (isset($params['external_url'])) {
+            $strExternalUrl = $params['external_url'];
+        }
         $strTargetType = '';
         if (isset($params['target_type'])) {
             $strTargetType = $params['target_type'];
@@ -197,17 +195,17 @@ class NestedSidebar extends \QCubed\Control\Panel
             'status' => $intStatus,
             'redirect_url' => $strRedirectUrl,
             'homely_url' => $intHomelyUrl,
+            'external_url' => $strExternalUrl,
             'target_type' => $strTargetType
         ];
         return $vars;
     }
 
-
     /**
-     * Returns the HTML for the control.
-     * @return string
-     * @throws Caller
-     * @throws \Exception
+     * Generates the HTML for the control by binding data, setting up parameters,
+     * rendering menu trees, and returning the final HTML string.
+     *
+     * @return string The generated HTML of the control.
      */
     protected function getControlHtml()
     {
@@ -239,7 +237,9 @@ class NestedSidebar extends \QCubed\Control\Panel
     }
 
     /**
-     * @throws Caller
+     * Binds data to a data source if it hasn't been rendered yet and a DataBinder is provided.
+     *
+     * @return void
      */
     public function dataBind()
     {
@@ -255,7 +255,11 @@ class NestedSidebar extends \QCubed\Control\Panel
     }
 
     /**
-     * Fix up possible embedded reference to the form.
+     * Prepares the object for serialization by ensuring that the node parameters callback
+     * is in a state that can be safely serialized. Additionally, it invokes the parent
+     * class's sleep method to handle any further serialization preparation.
+     *
+     * @return void
      */
     public function sleep()
     {
@@ -264,8 +268,13 @@ class NestedSidebar extends \QCubed\Control\Panel
     }
 
     /**
-     * The object has been unserialized, so fix up pointers to embedded objects.
-     * @param FormBase $objForm
+     * Restores the object state after deserialization by invoking the parent
+     * class's wakeup method and updating the node parameters callback using a
+     * helper function.
+     *
+     * @param FormBase $objForm The form object used to assist in reinitializing the
+     *                          node parameters callback during the wakeup process.
+     * @return void
      */
     public function wakeup(FormBase $objForm)
     {
@@ -274,70 +283,88 @@ class NestedSidebar extends \QCubed\Control\Panel
     }
 
     /**
-     * @param $arrParams
-     * @return string
+     * Renders a hierarchical menu tree structure based on the provided parameters.
+     *
+     * @param array $arrParams An array of associative arrays containing menu item parameters such as id, parent_id, depth, left, right, menu_text, status, redirect_url, homely_url, and target_type.
+     * @return string A string containing the HTML representation of the menu tree.
      */
+
     protected function renderMenuTree($arrParams)
     {
-        $strHtml = '';
-        $strHtml .= '<' . $this->strSubTagName . '>';
+        $strHtml = '<' . $this->strSubTagName . '>';
+        $this->intCurrentDepth = 0;
 
-        for ($i = 0; $i < count($arrParams); $i++)
-        {
-            $this->intId = $arrParams[$i]['id'];
-            $this->intParentId = $arrParams[$i]['parent_id'];
-            $this->intDepth = $arrParams[$i]['depth'];
-            $this->intLeft = $arrParams[$i]['left'];
-            $this->intRight = $arrParams[$i]['right'];
-            $this->strMenuText = $arrParams[$i]['menu_text'];
-            $this->intStatus = $arrParams[$i]['status'];
-            $this->strRedirectUrl = $arrParams[$i]['redirect_url'];
-            $this->intHomelyUrl = $arrParams[$i]['homely_url'];
-            $this->strTargetType = $arrParams[$i]['target_type'];
+        for ($i = 0; $i < count($arrParams); $i++) {
+            $node = $arrParams[$i];
+            $this->intId = $node['id'];
+            $this->intParentId = $node['parent_id'];
+            $this->intDepth = $node['depth'];
+            $this->intLeft = $node['left'];
+            $this->intRight = $node['right'];
+            $this->strMenuText = $node['menu_text'];
+            $this->intStatus = $node['status'];
+            $this->strRedirectUrl = $node['redirect_url'];
+            $this->intHomelyUrl = $node['homely_url'];
+            $this->strExternalUrl = $node['external_url'];
+            $this->strTargetType = $node['target_type'];
 
-            if ($this->intStatus !== 0) {
-                if ($this->intDepth == $this->intCurrentDepth) {
-                    if ($this->intCounter > 0)
-                        $strHtml .= '</li>';
-                } elseif ($this->intDepth > $this->intCurrentDepth) {
-                    $strHtml .= _nl() . '<' . $this->strSubTagName . ' class="sub-menu">';
-                    $this->intCurrentDepth = $this->intCurrentDepth + ($this->intDepth - $this->intCurrentDepth);
-                } elseif ($this->intDepth < $this->intCurrentDepth) {
-                    $strHtml .= str_repeat('</li>' . _nl() . '</' . $this->strSubTagName . '>', $this->intCurrentDepth - $this->intDepth) . '</li>';
-                    $this->intCurrentDepth = $this->intCurrentDepth - ($this->intCurrentDepth - $this->intDepth);
-                }
-
-                $url = isset($_SERVER['HTTPS']) ? "https" : "http" . '://' . $_SERVER['HTTP_HOST'] . QCUBED_URL_PREFIX;
-                $target = ' target="' . $this->strTargetType . '"';
-
-                $strHtml .= _nl() . '<li id="' . $this->strControlId . '_' . $this->intId . '">';
-
-                if ($this->intHomelyUrl) {
-                    $strHtml .= '<a href="' . $url . $this->strRedirectUrl . '">';
-                } elseif (strlen($this->strTargetType)) {
-                    $strHtml .= '<a href="' . $this->strRedirectUrl . '"' . $target . '>';
-                } else {
-                    $strHtml .= '<a href="' . $this->strRedirectUrl . '">';
-                }
-                $strHtml .= $this->strMenuText;
-
-                if ($this->intRight == $this->intLeft + 1) {
-                    $strHtml .= '</a>';
-                } else {
-                    $strHtml .= '<i class="fa fa-angle-down" aria-hidden="true"></i></a>';
-                }
-                ++$this->intCounter;
+            if ($this->intStatus == 2 || $this->intStatus == 3) {
+                continue;
             }
+
+            while ($this->intDepth < $this->intCurrentDepth) {
+                $strHtml .= '</li>' . _nl() . '</' . $this->strSubTagName . '>';
+                $this->intCurrentDepth--;
+            }
+
+            if ($this->intDepth > $this->intCurrentDepth) {
+                $strHtml .= _nl() . '<' . $this->strSubTagName . ' class="sub-menu">';
+                $this->intCurrentDepth++;
+            } else if ($this->intCounter > 0) {
+                $strHtml .= '</li>';
+            }
+
+            $strHtml .= _nl() . '<li id="' . $this->strControlId . '_' . $this->intId . '">';
+            $strHtml .= $this->generateMenuItem();
+            ++$this->intCounter;
         }
-        $strHtml .= str_repeat('</li>' . _nl() . '</' . $this->strSubTagName . '>', $this->intDepth);
-        $strHtml .= '</' . $this->strSubTagName . '>';
+
+        while ($this->intCurrentDepth > 0) {
+            $strHtml .= '</li>' . _nl() . '</' . $this->strSubTagName . '>';
+            $this->intCurrentDepth--;
+        }
+
+        $strHtml .= '</li></' . $this->strSubTagName . '>';
         return $strHtml;
     }
 
+    private function generateMenuItem()
+    {
+        $target = '';
+        if (!empty($this->strTargetType)) {
+            $target = ' target="' . $this->strTargetType . '"';
+        }
+
+        $link = ($this->intHomelyUrl === 1) ? $this->strRedirectUrl : $this->strExternalUrl;
+
+        $menuItem = '<a href="' . $link . '"' . $target . '>';
+        $menuItem .= $this->strMenuText;
+
+        if ($this->intRight != $this->intLeft + 1) {
+            $menuItem .= ' <i class="fa fa-angle-down" aria-hidden="true"></i>';
+        }
+        $menuItem .= '</a>';
+
+        return $menuItem;
+    }
+
     /**
-     * @param $objArrays
-     * @param $value
-     * @return string
+     * Retrieves a list of child item IDs based on a specified parent value from the given array of objects.
+     * If no value is specified, it will retrieve the top-level items.
+     *
+     * @param array $objArrays The array of objects with hierarchical data.
+     * @param mixed $value The parent value to search for in the objects. Default is null.
+     * @return array An array of child item IDs matching the specified parent value.
      */
     public function getChildren($objArrays, $value = null)
     {
@@ -361,6 +388,13 @@ class NestedSidebar extends \QCubed\Control\Panel
         ControlBase::refresh();
     }
 
+    /**
+     * Initializes the jQuery widget by activating the "Home" link and setting up the event handling
+     * for submenu interactions. For production, it is recommended to activate the "Home" link
+     * immediately and use the "return true;" statement to ensure the submenu links work properly.
+     *
+     * @return void
+     */
     public function makeJqWidget()
     {
         /**
@@ -371,7 +405,7 @@ class NestedSidebar extends \QCubed\Control\Panel
 
         /**
          * To draw or test the menu, the js code is temporarily placed here at the end: "return false;".
-         * This part of the code usually needs to be removed for the links to work properly.
+         * This part of the code usually needs to be changed to "return true;" for the links to work properly.
          */
         Application::executeSelectorFunction(".submenu", "on", "click", "a",
             new Js\Closure("jQuery('#nestedmenu ul ul').hide();    //hide all ul children
@@ -411,6 +445,8 @@ class NestedSidebar extends \QCubed\Control\Panel
                 return $this->intStatus;
             case "RedirectUrl":
                 return $this->strRedirectUrl;
+            case "ExternalUrl":
+                return $this->strExternalUrl;
             case "SubTagName":
                 return $this->strSubTagName;
             case "SubTagClass":
@@ -511,6 +547,15 @@ class NestedSidebar extends \QCubed\Control\Panel
                 try {
                     $this->blnModified = true;
                     $this->strRedirectUrl = Type::Cast($mixValue, Type::STRING);
+                } catch (InvalidCast $objExc) {
+                    $objExc->IncrementOffset();
+                    throw $objExc;
+                }
+                break;
+            case "ExternalUrl":
+                try {
+                    $this->blnModified = true;
+                    $this->strExternalUrl = Type::Cast($mixValue, Type::STRING);
                 } catch (InvalidCast $objExc) {
                     $objExc->IncrementOffset();
                     throw $objExc;

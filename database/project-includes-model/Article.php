@@ -1,8 +1,8 @@
 <?php
 	require(QCUBED_PROJECT_MODEL_GEN_DIR . '/ArticleGen.php');
 
-use QCubed\Query\QQ;
-//use QCubed\Query\Clause\ClauseInterface as iClause;
+    use QCubed\Query\QQ;
+    use QCubed\Query\Clause\ClauseInterface as iClause;
 
 	/**
 	 * The Article class defined here contains any
@@ -25,7 +25,7 @@ use QCubed\Query\QQ;
 		 * @return string a nicely formatted string representation of this object
 		 */
 		public function __toString() {
-			return 'Article Object ' . $this->PrimaryKey();
+			return $this->getAssignedByUserObject()->getFirstname() . ' ' .  $this->getAssignedByUserObject()->getLastName();
 		}
 
 		/**
@@ -46,24 +46,6 @@ use QCubed\Query\QQ;
 			return $objToReturn;
 		}
 
-		public function setUserNameById($key)
-		{
-			if ($this->getAssignedByUserObject()->Id !== $key) {
-				$this->Author = $this->getAssignedByUserObject()->getFirstname() . ' ' .  $this->getAssignedByUserObject()->getLastName();
-				$this->save();
-			} else {
-				// do nothing
-			}
-		}
-
-		public function setNewsCategoryById($key)
-		{
-			if ($this->getCategoryId() == $key) {
-				$this->Category = $this->getCategory()->getName();
-				$this->save();
-			}
-		}
-
 		public function getAssignedEditorsNameById($key)
 		{
 			if ($this->getAssignedByUserObject()->Id !== $key) {
@@ -72,10 +54,8 @@ use QCubed\Query\QQ;
 				} else {
 					// do nothing
 				}
-
 			}
 		}
-
 
 		// Override or Create New Load/Count methods
 		// (For obvious reasons, these methods are commented out...

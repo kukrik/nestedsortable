@@ -26,6 +26,7 @@ use QCubed\Bootstrap as Bs;
  * @property boolean $Checked specifices whether or not hte checkbox is checked
  * @property boolean $HtmlEntities specifies whether the checkbox text will have to be run through htmlentities or not.
  * @property string $WrapperClass $WrapperClass only sets or returns the CSS class of this wrapped in a div.
+ * @property string $WrapperStyle
  * @property string $InputClass $InputClass only sets or returns the CSS class of this input.
  *
  * @property-write boolean $Inline whether checkbox should be displayed inline or wrapped in a div
@@ -60,6 +61,7 @@ class Checkbox extends Q\Project\Control\ControlBase
     protected $blnWrapLabel = false;
     protected $strInputClass = null;
     protected $strWrapperClass = null;
+
     protected $strLabelAttributes;
 
 
@@ -111,7 +113,7 @@ class Checkbox extends Q\Project\Control\ControlBase
 
         $strText = ($this->blnHtmlEntities) ? QString::htmlEntities($this->strText) : $this->strText;
 
-        if (strlen($this->strText)) {
+        if (strlen($this->strText ?? '')) {
             $this->strLabelAttributes = ' for="' . $this->strControlId . '"';
         }
 
@@ -156,7 +158,6 @@ class Checkbox extends Q\Project\Control\ControlBase
         if ($this->WrapperClass) {
             $objStyler->addCssClass($this->WrapperClass);
         }
-
         if (!$this->Enabled) {
             $objStyler->addCssClass('disabled');    // add the disabled class to the label for styling
         }

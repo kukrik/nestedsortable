@@ -9,7 +9,8 @@ use QCubed\Project\Application;
 
 class HomePageMetadataPanel extends Q\Control\Panel
 {
-    public $dlgModal;
+    public $dlgModal1;
+    public $dlgModal2;
     protected $dlgToastr;
 
     public $lblKeywordsHint;
@@ -29,11 +30,10 @@ class HomePageMetadataPanel extends Q\Control\Panel
     public $btnDelete;
     public $btnCancel;
 
-
-
     protected $strSaveButtonId;
     protected $strSavingButtonId;
 
+    protected $intId;
     protected $objMetadata;
 
     protected $strTemplate = 'HomePageMetaDataPanel.tpl.php';
@@ -47,9 +47,24 @@ class HomePageMetadataPanel extends Q\Control\Panel
             throw $objExc;
         }
 
-        $intId = Application::instance()->context()->queryStringItem('id');
-        $this->objMetadata = Metadata::load($intId);
+        $this->intId = Application::instance()->context()->queryStringItem('id');
+        $this->objMetadata = Metadata::loadByIdFromMetadata($this->intId);
 
+        $this->createInputs();
+        $this->createButtons();
+        $this->createToastr();
+        $this->createModals();
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Initializes and creates input controls for metadata management, including alerts, labels, and textboxes for keywords, descriptions, and authors.
+     *
+     * @return void
+     */
+    public function createInputs()
+    {
         $this->lblKeywordsHint = new Q\Plugin\Control\Alert($this);
         $this->lblKeywordsHint->Display = true;
         $this->lblKeywordsHint->Dismissable = true;
@@ -104,7 +119,6 @@ class HomePageMetadataPanel extends Q\Control\Panel
         $this->lblAuthorHint->addCssClass('alert alert-info alert-dismissible');
         $this->lblAuthorHint->Text = t('Author/authors');
 
-
         $this->lblAuthor = new Q\Plugin\Control\Label($this);
         $this->lblAuthor->Text = t('Author');
         $this->lblAuthor->addCssClass('col-md-3');
@@ -117,17 +131,19 @@ class HomePageMetadataPanel extends Q\Control\Panel
         $this->txtAuthor->addAction(new Q\Event\EnterKey(), new Q\Action\Terminate());
         $this->txtAuthor->AddAction(new Q\Event\EscapeKey(), new Q\Action\AjaxControl($this,'btnMenuCancel_Click'));
         $this->txtAuthor->addAction(new Q\Event\EscapeKey(), new Q\Action\Terminate());
-
-        $this->createButtons();
-        $this->createToastr();
-        $this->createModals();
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////////////
-
+    /**
+     * Creates and initializes the action buttons for the user interface, specifically Save, Save and Close, Delete, and Cancel buttons.
+     *
+     * The Save and Save and Close buttons are conditionally set to 'Update' or 'Save' based on the presence of metadata attributes (keywords, description, and author).
+     * Attaches the corresponding event handlers for each button, enabling actions such as saving, deleting, and cancelling operations.
+     *
+     * @return void
+     */
     public function CreateButtons()
     {
-        $this->btnSave = new Q\Plugin\Control\Button($this);
+        $this->btnSave = new Bs\Button($this);
         if ($this->objMetadata->getKeywords() ||
             $this->objMetadata->getDescription() ||
             $this->objMetadata->getAuthor()
@@ -143,7 +159,7 @@ class HomePageMetadataPanel extends Q\Control\Panel
         // The variable below is being prepared for fast transmission
         $this->strSaveButtonId = $this->btnSave->ControlId;
 
-        $this->btnSaving = new Q\Plugin\Control\Button($this);
+        $this->btnSaving = new Bs\Button($this);
         if ($this->objMetadata->getKeywords() ||
             $this->objMetadata->getDescription() ||
             $this->objMetadata->getAuthor()
@@ -159,14 +175,14 @@ class HomePageMetadataPanel extends Q\Control\Panel
         // The variable below is being prepared for fast transmission
         $this->strSavingButtonId = $this->btnSaving->ControlId;
 
-        $this->btnDelete = new Q\Plugin\Control\Button($this);
+        $this->btnDelete = new Bs\Button($this);
         $this->btnDelete->Text = t('Delete');
         $this->btnDelete->CssClass = 'btn btn-danger';
         $this->btnDelete->addWrapperCssClass('center-button');
         $this->btnDelete->CausesValidation = false;
         $this->btnDelete->addAction(new Q\Event\Click(), new Q\Action\AjaxControl($this, 'btnMenuDelete_Click'));
 
-        $this->btnCancel = new Q\Plugin\Control\Button($this);
+        $this->btnCancel = new Bs\Button($this);
         $this->btnCancel->Text = t('Cancel');
         $this->btnCancel->CssClass = 'btn btn-default';
         $this->btnCancel->addWrapperCssClass('center-button');
@@ -174,6 +190,11 @@ class HomePageMetadataPanel extends Q\Control\Panel
         $this->btnCancel->addAction(new Q\Event\Click(), new Q\Action\AjaxControl($this, 'btnMenuCancel_Click'));
     }
 
+    /**
+     * Initializes a Toastr notification instance and sets its properties.
+     *
+     * @return void
+     */
     protected function createToastr()
     {
         $this->dlgToastr = new Q\Plugin\Toastr($this);
@@ -183,32 +204,63 @@ class HomePageMetadataPanel extends Q\Control\Panel
         $this->dlgToastr->ProgressBar = true;
     }
 
+    /**
+     * Initializes and sets up a modal dialog for confirming the deletion of global metadata.
+     *
+     * @return void
+     */
     public function createModals()
     {
-        $this->dlgModal = new Bs\Modal($this);
-        $this->dlgModal->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">Are you sure you want to delete the global metadata of this website?</p>
+        $this->dlgModal1 = new Bs\Modal($this);
+        $this->dlgModal1->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">Are you sure you want to delete the global metadata of this website?</p>
                             <p style="line-height: 25px; margin-bottom: -3px;">If desired, you can later re-write!</p>');
-        $this->dlgModal->Title = t('Warning');
-        $this->dlgModal->HeaderClasses = 'btn-danger';
-        $this->dlgModal->addButton(t("I accept"), t('This menu metadata has been permanently deleted.'), false, false, null,
+        $this->dlgModal1->Title = t('Warning');
+        $this->dlgModal1->HeaderClasses = 'btn-danger';
+        $this->dlgModal1->addButton(t("I accept"), t('This menu metadata has been permanently deleted.'), false, false, null,
             ['class' => 'btn btn-orange']);
-        $this->dlgModal->addCloseButton(t("I'll cancel"));
-        $this->dlgModal->addAction(new Q\Event\DialogButton(), new Q\Action\AjaxControl($this, 'deletedItem_Click'));
+        $this->dlgModal1->addCloseButton(t("I'll cancel"));
+        $this->dlgModal1->addAction(new Q\Event\DialogButton(), new Q\Action\AjaxControl($this, 'deletedItem_Click'));
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+        // CSRF PROTECTION
+
+        $this->dlgModal2 = new Bs\Modal($this);
+        $this->dlgModal2->Text = t('<p style="margin-top: 15px;">CSRF Token is invalid! The request was aborted.</p>');
+        $this->dlgModal2->Title = t("Warning");
+        $this->dlgModal2->HeaderClasses = 'btn-danger';
+        $this->dlgModal2->addCloseButton(t("I understand"));
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
 
+    /**
+     * Handles the event when the save button in the menu is clicked. Updates metadata
+     * and saves it. Changes button text based on whether metadata fields are set. Notifies
+     * the user of the action performed.
+     *
+     * @param ActionParams $params Parameters passed to the click event handler.
+     * @return void
+     */
     public function btnMenuSave_Click(ActionParams $params)
     {
+        if (!Application::verifyCsrfToken()) {
+            $this->dlgModal2->showDialogBox();
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            return;
+        }
+
         $this->objMetadata->setKeywords($this->txtKeywords->Text);
         $this->objMetadata->setDescription($this->txtDescription->Text);
         $this->objMetadata->setAuthor($this->txtAuthor->Text);
         $this->objMetadata->save();
 
-        if (!$this->objMetadata->getKeywords() ||
-            !$this->objMetadata->getDescription() ||
-            !$this->objMetadata->getAuthor()) {
-
+        if (($this->objMetadata->getKeywords() == null) ||
+            ($this->objMetadata->getKeywords() == null &&
+                $this->objMetadata->getDescription() == null) ||
+            ($this->objMetadata->getKeywords() == null &&
+                $this->objMetadata->getDescription() == null &&
+                $this->objMetadata->getAuthor() == null)
+        ) {
             $strSave_translate = t('Save');
             $strSaveAndClose_translate = t('Save and close');
             Application::executeJavaScript(sprintf("jQuery($this->strSaveButtonId).text('{$strSave_translate}');"));
@@ -223,8 +275,23 @@ class HomePageMetadataPanel extends Q\Control\Panel
         $this->dlgToastr->notify();
     }
 
+    /**
+     * Handles the click event for the Menu Save and Close button.
+     * This function sets the keywords, description, and author for the metadata
+     * using the values from their respective text fields, saves the metadata,
+     * and then redirects the user to the list page.
+     *
+     * @param ActionParams $params The parameters passed to the action handler.
+     * @return void This method does not return a value.
+     */
     public function btnMenuSaveClose_Click(ActionParams $params)
     {
+        if (!Application::verifyCsrfToken()) {
+            $this->dlgModal2->showDialogBox();
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            return;
+        }
+
         $this->objMetadata->setKeywords($this->txtKeywords->Text);
         $this->objMetadata->setDescription($this->txtDescription->Text);
         $this->objMetadata->setAuthor($this->txtAuthor->Text);
@@ -233,13 +300,36 @@ class HomePageMetadataPanel extends Q\Control\Panel
         $this->redirectToListPage();
     }
 
+    /**
+     * Handles the click event for the delete menu button.
+     * Checks if there are keywords, description, or author information available in the metadata.
+     * If any of these properties are set, it displays a confirmation dialog box before allowing deletion.
+     *
+     * @param ActionParams $params The parameters associated with the action event.
+     * @return void
+     */
     public function btnMenuDelete_Click(ActionParams $params)
     {
+        if (!Application::verifyCsrfToken()) {
+            $this->dlgModal2->showDialogBox();
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            return;
+        }
+
         if ($this->objMetadata->getKeywords() || $this->objMetadata->getDescription() || $this->objMetadata->getAuthor()) {
-            $this->dlgModal->showDialogBox();
+            $this->dlgModal1->showDialogBox();
         }
     }
 
+    /**
+     * Handles the event when an item is deleted.
+     *
+     * Resets metadata fields and UI components, sets default button text,
+     * and hides the dialog modal.
+     *
+     * @param ActionParams $params The parameters associated with the action event.
+     * @return void
+     */
     public function deletedItem_Click(ActionParams $params)
     {
         $this->objMetadata->setKeywords(null);
@@ -251,17 +341,47 @@ class HomePageMetadataPanel extends Q\Control\Panel
         $this->txtDescription->Text = '';
         $this->txtAuthor->Text = '';
 
-        $this->dlgModal->hideDialogBox();
+        $strSave_translate = t('Save');
+        $strSaveAndClose_translate = t('Save and close');
+        Application::executeJavaScript(sprintf("jQuery($this->strSaveButtonId).text('{$strSave_translate}');"));
+        Application::executeJavaScript(sprintf("jQuery($this->strSavingButtonId).text('{$strSaveAndClose_translate}');"));
+
+        $this->dlgModal1->hideDialogBox();
     }
 
+    /**
+     * Handles the click event for the Menu Cancel button.
+     *
+     * This method is triggered when the user clicks the cancel button in the menu.
+     * It redirects the user to the list page.
+     *
+     * @param ActionParams $params The parameters associated with the action event.
+     * @return void
+     */
     public function btnMenuCancel_Click(ActionParams $params)
     {
+        if (!Application::verifyCsrfToken()) {
+            $this->dlgModal2->showDialogBox();
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            return;
+        }
+
         $this->redirectToListPage();
     }
 
+    /**
+     * Redirects the user to the list page with the current object's ID appended to the URL.
+     *
+     * @return void
+     */
     protected function redirectToListPage()
     {
-        Application::redirect('menu_manager.php');
-    }
+        if (!Application::verifyCsrfToken()) {
+            $this->dlgModal2->showDialogBox();
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            return;
+        }
 
+        Application::redirect('home-menu_edit.php?id=' . $this->intId);
+    }
 }

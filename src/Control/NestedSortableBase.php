@@ -32,12 +32,17 @@ use QCubed\Html;
  * @property string $MenuText
  * @property string $RedirectUrl
  * @property integer $IsRedirect
+ * @property integer $ExternalUrl
  * @property integer $SelectedPageId
+ * @property string $SelectedPage
+ * @property integer $SelectedPageLocked
  * @property string $ContentTypeObject
- * @property string $ContentType
+ * @property integer $ContentType
+ * @property string $GroupTitle
  * @property integer $Status
+ * @property string $WrapperClass
  * @property string $SectionClass
- * @property mixed $DataSource
+ * @property array $DataSource
  *
  * @property-read array $ItemArray List of ControlIds in sort orders.
  *
@@ -48,8 +53,11 @@ class NestedSortableBase extends NestedSortableGen
 {
     use Q\Control\DataBinderTrait;
 
+    protected $strItem = null;
     protected $aryItemArray = null;
 
+    /** @var string WrapperClass */
+    protected $strWrapperClass = null;
     /** @var string SectionClass */
     protected $strSectionClass = null;
     /** @var  callable */
@@ -84,16 +92,20 @@ class NestedSortableBase extends NestedSortableGen
     protected $strRedirectUrl;
     /** @var  int IsRedirect */
     protected $intIsRedirect;
+    /** @var  string ExternalUrl */
+    protected $strExternalUrl;
     /** @var  int SelectedPage */
     protected $intSelectedPageId;
+    /** @var  string SelectedPage */
+    protected $strSelectedPage;
+    /** @var  integer SelectedPageLocked */
+    protected $intSelectedPageLocked;
     /** @var  string ContentTypeObject */
     protected $strContentTypeObject;
     /** @var  int ContentType */
     protected $intContentType;
     /** @var  int Status */
     protected $intStatus;
-    /** @var  boolean MenuItemAppend */
-    protected $blnMenuItemAppend = false;
 
     public function __construct($objParentObject, $strControlId = null)
     {
@@ -104,12 +116,18 @@ class NestedSortableBase extends NestedSortableGen
             throw $objExc;
         }
         $this->registerFiles();
-        $this->UseWrapper = false; // make sure we do not use a wrapper to draw!
     }
 
+    /**
+     * Registers the necessary JS and CSS files for nested sortable functionality,
+     * Bootstrap, and Font Awesome.
+     *
+     * @return void
+     */
     protected function registerFiles()
     {
         $this->addJavascriptFile(QCUBED_NESTEDSORTABLE_ASSETS_URL . "/js/jquery.mjs.nestedSortable.js");
+        $this->addJavascriptFile(QCUBED_NESTEDSORTABLE_ASSETS_URL . "/js/select2.js");
         $this->AddCssFile(QCUBED_BOOTSTRAP_CSS); // make sure they know
         $this->AddCssFile(QCUBED_FONT_AWESOME_CSS); // make sure they know
         $this->addCssFile(QCUBED_NESTEDSORTABLE_ASSETS_URL . "/css/style.css");
@@ -117,27 +135,10 @@ class NestedSortableBase extends NestedSortableGen
     }
 
     /**
-     * Set the node params callback. The callback should be of the form:
-     * func($objItem)
-     * The callback will be give the raw node from the data source, and the item's index.
-     * The function should return a key/value array with the following possible items:
+     * Sets the callback function to create node parameters.
      *
-     * id - the id for the node tag
-     * parent_id - the parent_id for the node tag
-     * depth - the depth for the node tag
-     * left - the left for the node tag
-     * right - the right for the node tag
-     * menu_text - the menu_text for the node tag
-     * redirect_url - the redirect_url for the node tag
-     * is_redirect - the is_redirect for the node tag
-     * selected_page_id - the selected_page_id for the node tag
-     * content_type_object - the content_type_object for the node tag
-     * content_type - the content_type for the node tag
-     * status - the status for the node tag for the node tag
-     *
-     * The callback is a callable, so can be of the form [$objControl, "func"]
-     *
-     * @param callable $callback
+     * @param callable $callback The callback function that generates node parameters.
+     * @return void
      */
     public function createNodeParams(callable $callback)
     {
@@ -145,7 +146,10 @@ class NestedSortableBase extends NestedSortableGen
     }
 
     /**
-     * @param callable $callback
+     * Assigns a callback function intended to handle the rendering of buttons.
+     *
+     * @param callable $callback The callback function that will be used to render buttons.
+     * @return void
      */
     public function createRenderButtons(callable $callback)
     {
@@ -153,12 +157,14 @@ class NestedSortableBase extends NestedSortableGen
     }
 
     /**
-     * Uses HTML callback to get each loop in the original array. Relies on the NodeParamsCallback
-     * to return information on how to draw each node.
+     * Retrieves the raw item parameters from the given item using a callback function.
+     * Throws an exception if the nodeParamsCallback is not set.
      *
-     * @param mixed $objItem
-     * @return string
-     * @throws \Exception
+     * @param mixed $objItem The item from which parameters are to be extracted.
+     * @return array The extracted parameters including id, parent_id, depth, left, right, menu_text,
+     *               content_type_object, content_type, group_title_id, redirect_url, is_redirect,
+     *               selected_page_id, selected_page, selected_page_locked, and status.
+     * @throws \Exception If nodeParamsCallback is not provided.
      */
     public function getItemRaw($objItem)
     {
@@ -207,9 +213,21 @@ class NestedSortableBase extends NestedSortableGen
         if (isset($params['is_redirect'])) {
             $intIsRedirect = $params['is_redirect'];
         }
+        $strExternalUrl = '';
+        if (isset($params['external_url'])) {
+            $strExternalUrl = $params['external_url'];
+        }
         $intSelectedPageId = '';
         if (isset($params['selected_page_id'])) {
             $intSelectedPageId = $params['selected_page_id'];
+        }
+        $strSelectedPage = '';
+        if (isset($params['selected_page'])) {
+            $strSelectedPage = $params['selected_page'];
+        }
+        $intSelectedPageLocked = '';
+        if (isset($params['selected_page_locked'])) {
+            $intSelectedPageLocked = $params['selected_page_locked'];
         }
         $intStatus = '';
         if (isset($params['status'])) {
@@ -227,16 +245,25 @@ class NestedSortableBase extends NestedSortableGen
             'content_type' => $intContentType,
             'redirect_url' => $strRedirectUrl,
             'is_redirect' => $intIsRedirect,
+            'external_url' => $strExternalUrl,
             'selected_page_id' => $intSelectedPageId,
+            'selected_page' => $strSelectedPage,
+            'selected_page_locked' => $intSelectedPageLocked,
             'status' => $intStatus
         ];
+
         return $vars;
     }
 
     /**
-     * @param $objItem
-     * @return mixed
-     * @throws \Exception
+     * Retrieves the drawing parameters for the given object.
+     * The parameters are determined using the provided cellParamsCallback.
+     *
+     * @param mixed $objItem The object for which to retrieve the drawing parameters.
+     *
+     * @return mixed The drawing parameters for the object.
+     * @throws \Exception If cellParamsCallback is not provided.
+     *
      */
     public function getObjectDraw($objItem)
     {
@@ -248,7 +275,10 @@ class NestedSortableBase extends NestedSortableGen
     }
 
     /**
-     * Fix up possible embedded reference to the form.
+     * Prepares the object for serialization by transforming callback parameters using the sleepHelper method.
+     * The parent sleep method is then called.
+     *
+     * @return void
      */
     public function sleep()
     {
@@ -258,8 +288,13 @@ class NestedSortableBase extends NestedSortableGen
     }
 
     /**
-     * The object has been unserialized, so fix up pointers to embedded objects.
-     * @param FormBase $objForm
+     * This method initializes the FormBase object passed to it.
+     * It also sets the nodeParamsCallback and cellParamsCallback properties
+     * using the parent class's wakeupHelper method.
+     *
+     * @param FormBase $objForm The form object to be initialized and processed.
+     *
+     * @return void
      */
     public function wakeup(FormBase $objForm)
     {
@@ -269,9 +304,9 @@ class NestedSortableBase extends NestedSortableGen
     }
 
     /**
-     * Returns the HTML for the control.
+     * Generates the HTML for the control, including any bound data and configured attributes.
      *
-     * @return string
+     * @return string The generated HTML for the control.
      */
     protected function getControlHtml()
     {
@@ -279,6 +314,9 @@ class NestedSortableBase extends NestedSortableGen
 
         $this->strParams = [];
         $this->strObjects = [];
+
+        $strHtml = '';
+        $strHtml .= $this->welcomeMessage();
 
         if ($this->objDataSource) {
             foreach ($this->objDataSource as $objObject) {
@@ -288,16 +326,18 @@ class NestedSortableBase extends NestedSortableGen
                 }
             }
         }
-        $strHtml = $this->welcomeMessage();
 
-        $strOut = $this->renderMenuTree($this->strParams, $this->strObjects);
-        $strHtml .= $this->renderTag($this->ListType, null, null, $strOut);
+        $strHtml .= $this->renderMenuTree($this->strParams, $this->strObjects);
+
         $this->objDataSource = null;
         return $strHtml;
     }
 
     /**
-     * @throws Caller
+     * Binds the data source to the UI component.
+     * If the data source is not set and a data binder is available, it calls the data binder method.
+     *
+     * @return void
      */
     public function dataBind()
     {
@@ -313,11 +353,10 @@ class NestedSortableBase extends NestedSortableGen
     }
 
     /**
-     * This is just a welcome message!
-     * At the same time, the first menu item has been created!
-     * Only the menu item title can be edited here.
+     * Generates a welcome message if there is exactly one item in the data source.
      *
-     * @return string
+     * @return string A formatted HTML string containing a welcome message with instructions to create menu items,
+     *                wrapped in a styled alert div.
      */
     public function welcomeMessage()
     {
@@ -329,17 +368,25 @@ $strEmptyMenuText
         }
     }
 
-  /**
-   * @param $arrParams
-   * @param $arrObjects
-   * @return string
-   */
+    /**
+     * Renders an HTML menu tree based on provided parameters and objects.
+     *
+     * @param array $arrParams An array of parameters each of which contains information about a menu item such as 'id', 'parent_id', 'depth',
+     *                          'left', 'right', 'menu_text', 'redirect_url', 'is_redirect', 'selected_page_id',
+     *                          'selected_page', 'content_type_object', 'content_type', 'group_title_id', and 'status'.
+     * @param array $arrObjects An array of additional objects that may be used for rendering each menu item.
+     *
+     * @return string A formatted HTML string representing the nested menu structure.
+     */
     protected function renderMenuTree($arrParams, $arrObjects)
     {
         $strHtml = '';
 
-        for ($i = 0; $i < count($arrParams); $i++)
-        {
+        // Let's start with the menu wrapper
+        $strHtml .= '<' . $this->TagName . ' class="' . $this->strWrapperClass . '" id="' . $this->ControlId . '">';
+
+        // Let's start the walkthrough
+        for ($i = 0; $i < count($arrParams); $i++) {
             $this->intId = $arrParams[$i]['id'];
             $this->intParentId = $arrParams[$i]['parent_id'];
             $this->intDepth = $arrParams[$i]['depth'];
@@ -348,64 +395,85 @@ $strEmptyMenuText
             $this->strMenuText = $arrParams[$i]['menu_text'];
             $this->strRedirectUrl = $arrParams[$i]['redirect_url'];
             $this->intIsRedirect = $arrParams[$i]['is_redirect'];
+            $this->strExternalUrl = $arrParams[$i]['external_url'];
             $this->intSelectedPageId = $arrParams[$i]['selected_page_id'];
+            $this->strSelectedPage = $arrParams[$i]['selected_page'];
             $this->strContentTypeObject = $arrParams[$i]['content_type_object'];
             $this->intContentType = $arrParams[$i]['content_type'];
             $this->intStatus = $arrParams[$i]['status'];
 
+            // We implement the callback function when specified
             if ($this->cellParamsCallback) {
                 $this->strRenderCellHtml = $this->getRenderCellHtml($arrObjects[$i]);
             }
 
+            // Depth comparisons for hierarchy
             if ($this->intDepth == $this->intCurrentDepth) {
-                if ($this->intCounter > 0)
+                if ($this->intCounter > 0) {
                     $strHtml .= '</li>';
+                }
             } elseif ($this->intDepth > $this->intCurrentDepth) {
-                $strHtml .= _nl() . '<' . $this->TagName . '>';
-                $this->intCurrentDepth = $this->intCurrentDepth + ($this->intDepth - $this->intCurrentDepth);
+                $strHtml .= '<' . $this->TagName . '>';
+                $this->intCurrentDepth += ($this->intDepth - $this->intCurrentDepth);
             } elseif ($this->intDepth < $this->intCurrentDepth) {
-                $strHtml .= str_repeat('</li>' . '</' . $this->TagName . '>', $this->intCurrentDepth - $this->intDepth) . '</li>';
-                $this->intCurrentDepth = $this->intCurrentDepth - ($this->intCurrentDepth - $this->intDepth);
+                $strHtml .= str_repeat('</li></' . $this->TagName . '>', $this->intCurrentDepth - $this->intDepth) . '</li>';
+                $this->intCurrentDepth -= ($this->intCurrentDepth - $this->intDepth);
             }
-            $strHtml .= _nl() . '<li id="' . $this->ControlId . '_' . $this->intId . '"';
+
+            // Let's start creating <li>
+            $strHtml .= '<li id="' . $this->ControlId . '_' . $this->intId . '"';
             if ($this->intLeft + 1 == $this->intRight) {
                 $strHtml .= ' class="mjs-nestedSortable-leaf"';
             } else {
                 $strHtml .= ' class="mjs-nestedSortable-expanded"';
             }
             $strHtml .= '>';
-            $strCheckStatus = $this->intStatus == 1 ? 'enabled' : 'disabled';
-            $strDisplayedType = $this->strContentTypeObject ? ' Type: ' . $this->strContentTypeObject :' Type: ' . 'NULL';
-            $strRoutingInfo = $this->intContentType == 8 ? ' - ' . ' <span style="color: #2980b9;">' . $this->strRedirectUrl . '</span>'  : '';
-            $strDoubleRoutingInfo = $this->getRoutingInfo($this->intSelectedPageId);
 
-            $strHtml .= <<<TMPL
+            // We define different state data
+            $strCheckStatus = $this->intStatus === 1 ? 'enable' : 'disable';
+            $strDisplayedType = $this->strContentTypeObject ? ' Type: ' . $this->strContentTypeObject : ' Type: NULL';
+            $strRoutingInfo = $this->intContentType === 8 ? ' - <span style="color: #2980b9;">' . $this->strExternalUrl . '</span>' : '';
+            $strDoubleRoutingInfo = $this->intContentType === 7 && $this->intIsRedirect === 2 ? $this->getRoutingInfo($this->intSelectedPageId, $this->strSelectedPage) : '';
 
-    <div class="menu-row {$strCheckStatus}">
-        <span class="reorder"><i class="fa fa-bars"></i></span>
-        <span class="disclose"><span></span></span>
-        <section class="menu-body">{$this->strMenuText}<span class="separator">&nbsp;</span>{$strDisplayedType}{$strRoutingInfo}{$strDoubleRoutingInfo}</section>
-TMPL;
+            // We add the menu text and details section in the HTML line
+
+            if ($this->intId == 1) { // If item ID = 1
+                $strHtml .= '<div class="menu-row-highlight ' . $strCheckStatus . '"><span class="reorder"><i class="fa fa-bars"></i></span>
+            <span class="disclose"><span></span></span><section class="menu-body">' . $this->strMenuText . '<span class="separator">&nbsp;</span>' .
+                    $strDisplayedType . $strRoutingInfo . $strDoubleRoutingInfo;
+            } else {
+                $strHtml .= '<div class="menu-row ' . $strCheckStatus . '"><span class="reorder"><i class="fa fa-bars"></i></span>
+            <span class="disclose"><span></span></span><section class="menu-body">' . $this->strMenuText . '<span class="separator">&nbsp;</span>' .
+                    $strDisplayedType . $strRoutingInfo . $strDoubleRoutingInfo;
+            }
+            $strHtml .= '</section>';
+
+            // We add the callback content if it is specified
             if ($this->cellParamsCallback) {
                 $strHtml .= $this->strRenderCellHtml;
             }
-            $strHtml .= <<<TMPL
-    </div>
-TMPL;
+
+            $strHtml .= '</div>';
             ++$this->intCounter;
         }
-        $strHtml .= str_repeat('</li>' . '</' . $this->TagName . '>', $this->intDepth) . '</li>';
 
-        if ($this->blnMenuItemAppend)
-        {
-            $this->getMenuItemAppend();
+        // We close to the end of the depth
+        if ($this->intCurrentDepth > 0) {
+            $strHtml .= str_repeat('</li></' . $this->TagName . '>', $this->intCurrentDepth);
+            $this->intCurrentDepth = 0; // We reset the depth
         }
+
+        // Let's close the global ul-wrapper
+        $strHtml .= '</' . $this->TagName . '>';
+
         return $strHtml;
     }
 
     /**
-     * @param $value
-     * @return null|string
+     * Renders the cell content as an HTML section if cell parameter callback is defined.
+     *
+     * @param mixed $value The value to be rendered inside the HTML section.
+     * @return string|null The formatted HTML section containing the value, or null if the callback is not defined.
      */
     protected function getRenderCellHtml($value)
     {
@@ -416,7 +484,7 @@ TMPL;
                 $attributes['class'] = $this->strSectionClass;
             }
             $strHtml .= $value;
-            $strHtml = _nl() . Html::renderTag('section', $attributes, $strHtml);
+            $strHtml = Html::renderTag('section', $attributes, $strHtml);
             return $strHtml;
         } else {
             return null;
@@ -424,50 +492,45 @@ TMPL;
     }
 
     /**
-     * @return string
+     * Retrieves routing information for a given key and selected page.
+     *
+     * @param int $key The key to be checked against double redirects.
+     * @param string $selectedpage The selected page's name to be displayed in the routing information.
+     * @return string A formatted string containing routing information, indicating whether or not
+     *                there's a double redirection to the selected page, wrapped in styled HTML elements.
      */
-    protected function getMenuItemAppend()
+    protected function getRoutingInfo($key, $selectedpage)
     {
-        $strHtml = _nl() . '<li id="' . $this->ControlId . '_' . $this->intId . '"';
-        $strHtml .= ' class="mjs-nestedSortable-leaf"' . '>';
-        $strHtml .= <<<TMPL
+        $arrDoubleRedirects = [];
+        $count = [];
 
-    <div class="menu-row disabled">
-        <span class="reorder"><i class="fa fa-bars"></i></span>
-        <span class="disclose"><span></span></span>
-        <section class="menu-body">{$this->strMenuText}</section>
-TMPL;
-        if ($this->cellParamsCallback) {
-            $strHtml .= $this->strRenderCellHtml;
-        }
-        $strHtml .= '</li>';
-        return $strHtml;
-    }
-
-    protected function getRoutingInfo($key = null)
-    {
-        $strHtml = '';
-        if ($this->strParams) {
-            foreach ($this->strParams as $value) {
-                if ($key == $value['id']) {
-                    if ($value['content_type'] == 8) {
-                        $strHtml = '  - ' . '<span style="color: #ff0000;">' . '(' . '<strong>' . $value['menu_text'] . '</strong>' . ' | ' . t('Warning, double redirection: ') . '<span style="color: #2980b9;">' . $value['redirect_url'] . '</span>' . ')' . '</span>';
-                    } else {
-                        $strHtml = '  - ' . t('Redirected to this page: ') . '<span style="color: #2980b9;">' . $value['menu_text'] . '</span>';
-                    }
-                }
+        foreach ($this->strParams as $strParam) {
+            if ($strParam['is_redirect'] === 2 && $strParam['content_type'] === 7) {
+                $arrDoubleRedirects[] = $strParam['selected_page_id'];
             }
+        }
+        foreach ($arrDoubleRedirects as $doubleRedirect) {
+            if ($key == $doubleRedirect) {
+                $count[] = $doubleRedirect;
+            }
+        }
+
+        if (count($count) === 1) {
+            $strHtml = ' - ' . t('Redirected to this page: ') . '<span style="color: #2980b9;">' . $selectedpage . '</span>';
+        } else {
+            $strHtml = ' - ' . t('Redirected to this page ') . ' | ' . '<span style="color: #ff0000;">' .
+                t('Warning, double redirection: ') . '</span><span style="color: #2980b9;">' . $selectedpage . '</span>';
         }
         return $strHtml;
     }
 
     /**
-     * This function finds your children in descending order by the ancestor you clicked, except for the ancestor itself.
-     * There are many ways to use the getFullChildren(...) function.
+     * Recursively retrieves all child menu item IDs for a given parent menu item ID.
      *
-     * @param $objMenuArray
-     * @param null $clickedId Event-based click
-     * @return array
+     * @param array $objMenuArray Array of menu items to search through.
+     * @param mixed $clickedId ID of the parent menu item, null if starting from root.
+     *
+     * @return array An array of IDs representing the full hierarchy of child menu items.
      */
     public function getFullChildren($objMenuArray, $clickedId = null)
     {
@@ -482,12 +545,12 @@ TMPL;
     }
 
     /**
-     * The goal is to identify the ancestor ID by clicking on the child ID of that ancestor.
-     * There are many ways to use the getAncestorId(...) function.
+     * Retrieves the ancestor ID of a currently clicked menu item from an array of menu objects.
      *
-     * @param $objMenuArray
-     * @param null $clickedId Event-based click
-     * @return null
+     * @param array $objMenuArray The array of menu objects to search through.
+     * @param mixed $clickedId The ID of the clicked menu item for which the ancestor ID is to be found.
+     *                         Defaults to null if no specific ID is given.
+     * @return mixed The ancestor ID if found, null otherwise.
      */
     public function getAncestorId($objMenuArray, $clickedId = null)
     {
@@ -501,6 +564,41 @@ TMPL;
     }
 
     /**
+     * Verifies the lock status of selected pages by loading their content and checking if they are locked.
+     *
+     * @param object $objMenuContent An object that must have a `load` method to retrieve page content.
+     * @param array $selectedPageArray An array of page IDs whose lock status will be verified.
+     * @return int The number of pages that are locked.
+     * @throws \Exception If the $objMenuContent object does not have a `load` method
+     *                    or if content for a selected page fails to load.
+     */
+    public function verifyPageLockStatus($objMenuContent, array $selectedPageArray): int
+    {
+        // Check if $objMenuContent has a `load` method
+        if (!method_exists($objMenuContent, 'load')) {
+            throw new \Exception("The given object does not have a working `load` method.");
+        }
+
+        $countPageLocks = 0;
+
+        foreach ($selectedPageArray as $selectedPage) {
+            // Load the page content and check if it is correct
+            $objContent = $objMenuContent::load($selectedPage);
+
+            if (!$objContent) {
+                throw new \Exception("Failed to load content for page with ID {$selectedPage}.");
+            }
+
+            // Check if SelectedPageLocked is 1
+            if ($objContent->SelectedPageLocked == 1) {
+                $countPageLocks++;
+            }
+        }
+
+        return $countPageLocks;
+    }
+
+    /**
      * Generated method overrides the built-in Control method, causing it to not redraw completely. We restore
      * its functionality here.
      */
@@ -510,6 +608,13 @@ TMPL;
         ControlBase::refresh();
     }
 
+    /**
+     * Attaches various event listeners and JavaScript functionalities to HTML elements
+     * for handling nested sortable lists, button states, and sort stop events within a given context.
+     *
+     * @return string The parent class's end script, modified with additional JavaScript functionalities
+     *                for nested sortable lists and UI interactions.
+     */
     public function getEndScript()
     {
         Application::executeSelectorFunction(".disclose", "on", "click",
@@ -525,11 +630,11 @@ TMPL;
             Application::PRIORITY_HIGH);
 
         Application::executeSelectorFunction("body", "on", "click", "[data-buttons='true']",
-            new Js\Closure("jQuery(\"[data-status='change'], [data-edit='true'], [data-delete='true']\").prop('disabled', true);"),
+            new Js\Closure("jQuery(\"[data-status='change'], [data-edit='true'], [data-delete='true']\").prop('disable', true);"),
             Application::PRIORITY_HIGH);
 
         Application::executeSelectorFunction("body", "on", "click", "[data-buttons='false']",
-            new Js\Closure("jQuery(\"[data-status='change'], [data-edit='true'], [data-delete='true']\").prop('disabled', false);"),
+            new Js\Closure("jQuery(\"[data-status='change'], [data-edit='true'], [data-delete='true']\").prop('disable', false);"),
             Application::PRIORITY_HIGH);
 
         /**
@@ -538,18 +643,24 @@ TMPL;
          * Simple locking is added here.
          * But it can be hidden or removed if you need to.
          */
-        Application::executeJavaScript(sprintf("jQuery('#{$this->ControlId}_1').addClass('disabled')"));
-
+        //Application::executeJavaScript(sprintf("jQuery('#{$this->ControlId}_1').addClass('disabled')"));
         //Application::executeJavaScript(sprintf("jQuery('#{$this->ControlId}_33').closest('li').css('border', '2px solid red')"));
 
         $strJS = parent::getEndScript();
 
         $strCtrlJs = <<<FUNC
 jQuery('#{$this->ControlId}').on("sortstop", function (event, ui) {
+    var draggedItemId = ui.item.attr('id');
+    var cleanedId = draggedItemId.split('_')[1];
+    console.log("Cleaned Item ID: " + cleanedId);
+
     var arr = jQuery(this).nestedSortable("toArray", {startDepthCount: 0});
+    arr.shift();
     var str = JSON.stringify(arr);
     console.log(str);
+    
     qcubed.recordControlModification("$this->ControlId", "_ItemArray", str);
+    qcubed.recordControlModification("$this->ControlId", "_Item", cleanedId);
 })
 FUNC;
         Application::executeJavaScript($strCtrlJs, Application::PRIORITY_HIGH);
@@ -560,9 +671,19 @@ FUNC;
     public function __set($strName, $mixValue)
     {
         switch ($strName) {
-            case '_ItemArray': // Internal only. Do not use. Used by JS above to track selections.
+            case '_Item': // Internal only. Do not use. Used by JS above to track selections.
                 try {
                     $data = Type::cast($mixValue, Type::STRING);
+                    $this->strItem = $data;
+                } catch (InvalidCast $objExc) {
+                    $objExc->incrementOffset();
+                    throw $objExc;
+                }
+                break;
+            case '_ItemArray': // Internal only. Do not use. Used by JS above to track selections.
+                try {
+                    $jsonData = json_decode($mixValue, true);
+                    $data = Type::cast($jsonData, Type::ARRAY_TYPE);
                     $this->aryItemArray = $data;
                 } catch (InvalidCast $objExc) {
                     $objExc->incrementOffset();
@@ -642,10 +763,37 @@ FUNC;
                     throw $objExc;
                 }
                 break;
+            case "ExternalUrl":
+                try {
+                    $this->blnModified = true;
+                    $this->strExternalUrl = Type::Cast($mixValue, Type::STRING);
+                } catch (InvalidCast $objExc) {
+                    $objExc->IncrementOffset();
+                    throw $objExc;
+                }
+                break;
             case "SelectedPageId":
                 try {
                     $this->blnModified = true;
                     $this->intSelectedPageId = Type::Cast($mixValue, Type::INTEGER);
+                } catch (InvalidCast $objExc) {
+                    $objExc->IncrementOffset();
+                    throw $objExc;
+                }
+                break;
+            case "SelectedPage":
+                try {
+                    $this->blnModified = true;
+                    $this->strSelectedPage = Type::Cast($mixValue, Type::STRING);
+                } catch (InvalidCast $objExc) {
+                    $objExc->IncrementOffset();
+                    throw $objExc;
+                }
+                break;
+            case "SelectedPageLocked":
+                try {
+                    $this->blnModified = true;
+                    $this->intSelectedPageLocked = Type::Cast($mixValue, Type::INTEGER);
                 } catch (InvalidCast $objExc) {
                     $objExc->IncrementOffset();
                     throw $objExc;
@@ -678,6 +826,15 @@ FUNC;
                     throw $objExc;
                 }
                 break;
+            case "WrapperClass":
+                try {
+                    $this->blnModified = true;
+                    $this->strWrapperClass = Type::Cast($mixValue, Type::STRING);
+                } catch (InvalidCast $objExc) {
+                    $objExc->IncrementOffset();
+                    throw $objExc;
+                }
+                break;
             case "SectionClass":
                 try {
                     $this->blnModified = true;
@@ -696,7 +853,7 @@ FUNC;
                     $this->blnModified = true;
                     $this->blnMenuItemAppend = Type::Cast($mixValue, Type::BOOLEAN);
                 } catch (InvalidCast $objExc) {
-                    $objExc->IncrementOffset();
+                    $objExc->incrementOffset();
                     throw $objExc;
                 }
                 break;
@@ -715,6 +872,7 @@ FUNC;
     public function __get($strName)
     {
         switch ($strName) {
+            case 'Item': return $this->strItem;
             case 'ItemArray': return $this->aryItemArray;
             case "Id": return $this->intId;
             case "ParentId": return $this->intParentId;
@@ -724,10 +882,14 @@ FUNC;
             case "MenuText": return $this->strMenuText;
             case "RedirectUrl": return $this->strRedirectUrl;
             case "IsRedirect": return $this->intIsRedirect;
+            case "ExternalUrl": return $this->strExternalUrl;
             case "SelectedPageId": return $this->intSelectedPageId;
+            case "SelectedPage": return $this->strSelectedPage;
+            case "SelectedPageLocked": return $this->intSelectedPageLocked;
             case "ContentTypeObject": return $this->strContentTypeObject;
             case "ContentType": return $this->intContentType;
             case "Status": return $this->intStatus;
+            case "WrapperClass": return $this->strWrapperClass;
             case "SectionClass": return $this->strSectionClass;
             case "DataSource": return $this->objDataSource;
             case "MenuItemAppend": return $this->blnMenuItemAppend;

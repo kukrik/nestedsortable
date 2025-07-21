@@ -45,30 +45,32 @@ use QCubed\Type;
  * @property integer $ZIndex Z-index for element/helper while being sorted.
  *
  *
- * @property boolean $DisableParentChange ...
- * @property boolean $DoNotClear ...
- * @property integer $ExpandOnHover ...
- * @property boolean $IsTree ...
- * @property string $ListType ...
- * @property integer $MaxLevels ...
- * @property boolean $ProtectRoot ...
- * @property integer $RootId ...
- * @property boolean $RTL ...
- * @property boolean $StartCollapsed ...
- * @property integer $TabSize ...
+ * @property boolean $DisableParentChange Set this to true to lock the parentship of items. They can only be re-ordered within theire current parent container.
+ * @property boolean $DoNotClear Set this to true if you don't want empty lists to be removed. Default: false
+ * @property integer $ExpandOnHover How long (in ms) to wait before expanding a collapsed node (useful only if isTree: true). Default: 700
+ * @property function $IsAllowed You can specify a custom function to verify if a drop location is allowed. Default: function (placeholder, placeholderParent, currentItem) { return true; }
+ * @property boolean $IsTree Set this to true if you want to use the new tree functionality. Default: false
+ * @property string $ListType The list type used (ordered or unordered). Default: ol
+ * @property integer $MaxLevels The maximum depth of nested items the list can accept. If set to '0' the levels are unlimited. Default: 0
+ * @property boolean $ProtectRoot Whether to protect the root level (i.e. root items can be sorted but not nested, sub-items cannot become root items). Default: false
+ * @property integer $RootId The id given to the root element (set this to whatever suits your data structure). Default: null
+ * @property boolean $ExcludeRoot Exlude the root item from the toArray output
+ * @property boolean $RTL Set this to true if you have a right-to-left page. Default: false
+ * @property boolean $StartCollapsed Set this to true if you want the plugin to collapse the tree on page load. Default: false
+ * @property integer $TabSize How far right or left (in pixels) the item has to travel in order to be nested or to be sent outside its current list. Default: 20
  * @property string $ToleranceElement ...
- * @property string $BranchClass ...
- * @property string $CollapsedClass ...
- * @property string $DisableNestingClass ...
- * @property string $ErrorClass ...
- * @property string $ExpandedClass ...
- * @property string $HoveringClass ...
- * @property string $LeafClass ...
- * @property string $DisabledClass ...
+ * @property string $BranchClass Given to all items that have children. Default: mjs-nestedSortable-branch
+ * @property string $CollapsedClass Given to branches that are collapsed. It will be switched to expandedClass when hovering for more then expandOnHover ms. Default: mjs-nestedSortable-collapsed
+ * @property string $DisableNestingClass Given to items that will not accept children. Default: mjs-nestedSortable-no-nesting
+ * @property string $ErrorClass Given to the placeholder in case of error. Default: mjs-nestedSortable-error
+ * @property string $ExpandedClass Given to branches that are expanded. Default: mjs-nestedSortable-expanded
+ * @property string $HoveringClass Given to collapsed branches when dragging an item over them. Default: mjs-nestedSortable-hovering
+ * @property string $LeafClass Given to items that do not have children. Default: mjs-nestedSortable-leaf
+ * @property string $DisabledClass Given to items that should be skipped when sorting over them. For example, non-visible items that are still part of the list. Default: mjs-nestedSortable-disabled
  *
  */
 
-class NestedSortableGen extends Q\Control\Panel
+class NestedSortableGen extends Q\Control\BlockControl
 {
     protected $strJavaScripts = QCUBED_JQUI_JS;
     protected $strStyleSheets = QCUBED_JQUI_CSS;
@@ -136,6 +138,8 @@ class NestedSortableGen extends Q\Control\Panel
     protected $blnDoNotClear = null;
     /** @var integer */
     protected $intExpandOnHover = null;
+    /** @var function */
+    protected $objIsAllowed = null;
     /** @var boolean */
     protected $blnIsTree = null;
     /** @var string */
@@ -146,6 +150,8 @@ class NestedSortableGen extends Q\Control\Panel
     protected $blnProtectRoot = null;
     /** @var integer */
     protected $intRootId = null;
+    /** @var boolean */
+    protected $blnExcludeRoot = null;
     /** @var boolean */
     protected $blnRTL = null;
     /** @var boolean */
@@ -172,8 +178,14 @@ class NestedSortableGen extends Q\Control\Panel
     protected $strDisabledClass = null;
 
     /**
-     * Builds the option array to be sent to the widget constructor.
-     * @return array key=>value array of options
+     * Generates jQuery options for a sortable control.
+     * It includes several customizable parameters like appendTo, axis, cancel, classes, connectWith, containment,
+     * cursor, cursorAt, delay, disabled, distance, dropOnEmpty, forceHelperSize, forcePlaceholderSize, grid,
+     * handle, helper, items, opacity, placeholder, revert, scroll, scrollSensitivity, scrollSpeed, tolerance,
+     * zIndex, and other specific options.
+     * Firing a 'create' event once options are set.
+     *
+     * @return array An associative array containing all the jQuery options for the sortable control.
      */
 
     protected function makeJqOptions()
@@ -210,11 +222,13 @@ class NestedSortableGen extends Q\Control\Panel
         if (!is_null($val = $this->DisableParentChange)) {$jqOptions['disableParentChange'] = $val;}
         if (!is_null($val = $this->DoNotClear)) {$jqOptions['doNotClear'] = $val;}
         if (!is_null($val = $this->ExpandOnHover)) {$jqOptions['expandOnHover'] = $val;}
+        if (!is_null($val = $this->IsAllowed)) {$jqOptions['isAllowed'] = $val;}
         if (!is_null($val = $this->IsTree)) {$jqOptions['isTree'] = $val;}
         if (!is_null($val = $this->ListType)) {$jqOptions['listType'] = $val;}
         if (!is_null($val = $this->MaxLevels)) {$jqOptions['maxLevels'] = $val;}
         if (!is_null($val = $this->ProtectRoot)) {$jqOptions['protectRoot'] = $val;}
         if (!is_null($val = $this->RootId)) {$jqOptions['rootID'] = $val;}
+        if (!is_null($val = $this->ExcludeRoot)) {$jqOptions['excludeRoot'] = $val;}
         if (!is_null($val = $this->RTL)) {$jqOptions['rtl'] = $val;}
         if (!is_null($val = $this->StartCollapsed)) {$jqOptions['startCollapsed'] = $val;}
         if (!is_null($val = $this->TabSize)) {$jqOptions['tabSize'] = $val;}
@@ -230,18 +244,18 @@ class NestedSortableGen extends Q\Control\Panel
 
         $jqOptions['create'] = new Q\Js\Closure('
                         var arr = jQuery(this).nestedSortable("toArray", {startDepthCount: 0});
+                        arr.shift();
                         var str = JSON.stringify(arr);
                         console.log(str);
                         qcubed.recordControlModification("$this->ControlId", "_ItemArray", str);
          ');
-
         return $jqOptions;
     }
 
     /**
-     * Return the JavaScript function to call to associate the widget with the control.
+     * Returns the jQuery setup function name for initializing nested sortable functionality.
      *
-     * @return string
+     * @return string The jQuery setup function name 'nestedSortable'.
      */
     public function getJqSetupFunction()
     {
@@ -503,11 +517,13 @@ class NestedSortableGen extends Q\Control\Panel
             case 'DisableParentChange': return $this->blnDisableParentChange;
             case 'DoNotClear': return $this->blnDoNotClear;
             case 'ExpandOnHover': return $this->intExpandOnHover;
+            case 'IsAllowed': return $this->objIsAllowed;
             case 'IsTree': return $this->blnIsTree;
             case 'ListType': return $this->strListType;
             case 'MaxLevels': return $this->intMaxLevels;
             case 'ProtectRoot': return $this->blnProtectRoot;
             case 'RootId': return $this->intRootId;
+            case 'ExcludeRoot': return $this->blnExcludeRoot;
             case 'RTL': return $this->blnRTL;
             case 'StartCollapsed': return $this->blnStartCollapsed;
             case 'TabSize': return $this->intTabSize;
@@ -781,6 +797,16 @@ class NestedSortableGen extends Q\Control\Panel
                     throw $objExc;
                 }
 
+            case 'IsAllowed':
+                try {
+                    $this->objIsAllowed = Type::Cast($mixValue, Type::CALLABLE_TYPE);
+                    $this->addAttributeScript($this->getJqSetupFunction(), 'option', 'isAllowed', $this->objIsAllowed);
+                    break;
+                } catch (InvalidCast $objExc) {
+                    $objExc->incrementOffset();
+                    throw $objExc;
+                }
+
             case 'IsTree':
                 try {
                     $this->blnIsTree = Type::Cast($mixValue, Type::BOOLEAN);
@@ -825,6 +851,16 @@ class NestedSortableGen extends Q\Control\Panel
                 try {
                     $this->intRootId = Type::Cast($mixValue, Type::INTEGER);
                     $this->addAttributeScript($this->getJqSetupFunction(), 'option', 'rootID', $this->intRootId);
+                    break;
+                } catch (InvalidCast $objExc) {
+                    $objExc->incrementOffset();
+                    throw $objExc;
+                }
+
+            case 'ExcludeRoot':
+                try {
+                    $this->blnExcludeRoot = Type::Cast($mixValue, Type::BOOLEAN);
+                    $this->addAttributeScript($this->getJqSetupFunction(), 'option', 'excludeRoot', $this->intRootId);
                     break;
                 } catch (InvalidCast $objExc) {
                     $objExc->incrementOffset();

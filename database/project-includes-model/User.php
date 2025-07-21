@@ -35,8 +35,8 @@
 				$this->DisplayName = $this->getFirstName() . ' ' . $this->getLastName();
 			} else {
 				$this->DisplayName = $this->getUsername();
-				$this->save();
 			}
+			$this->save();
 		}
 
 		// Override or Create New Load/Count methods

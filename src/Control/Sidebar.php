@@ -28,10 +28,12 @@ use QCubed\Html;
  * @property integer $Status
  * @property string $RedirectUrl
  * @property integer $HomelyUrl
+ * @property string $ExternalUrl
  * @property string $TargetType
  * @property string $SubTagName
  * @property string $SubTagClass
  * @property mixed $DataSource
+ * @property mixed $AssignedItems
  *
  * @package QCubed\Plugin
  */
@@ -41,12 +43,16 @@ class Sidebar extends \QCubed\Control\Panel
 
     /** @var string SubTagName */
     protected $strSubTagName = null;
-    /** @var string SubTagClass */
-    protected $strSubTagClass = null;
     /** @var  callable */
     protected $nodeParamsCallback = null;
     /** @var array DataSource from which the items are picked and rendered */
     protected $objDataSource;
+    /** @var array AssignedItems from which the items are predefined */
+    protected $objAssignedItems;
+
+    /**
+     * @var
+     */
     protected $strParams;
     protected $strObjects;
 
@@ -64,20 +70,22 @@ class Sidebar extends \QCubed\Control\Panel
     /** @var integer Right */
     protected $intRight = null;
     /** @var string MenuText */
-    protected $strMenuText = null;
+    protected $strMenuText;
     /** @var int Status */
-    protected $intStatus = null;
+    protected $intStatus;
     /** @var string RedirectUrl */
-    protected $strRedirectUrl = null;
+    protected $strRedirectUrl;
     /** @var int IsHomelyUrl */
-    protected $intHomelyUrl = null;
+    protected $intHomelyUrl;
+    /** @var string InternalUrl */
+    protected $strExternalUrl;
     /** @var int TargetType */
-    protected $strTargetType = null;
+    protected $strTargetType;
 
 
     /**
      * Sidebar constructor.
-     * @param Q\Control\ControlBase|FormBase $objParentObject
+     * @param ControlBase|FormBase $objParentObject
      * @param null $strControlId
      */
     public function __construct($objParentObject, $strControlId = null)
@@ -91,7 +99,11 @@ class Sidebar extends \QCubed\Control\Panel
         $this->registerFiles();
     }
 
-    /** @throws Caller */
+    /**
+     * Registers the necessary CSS and JavaScript files for Bootstrap and Font Awesome.
+     *
+     * @return void
+     */
     protected function registerFiles()
     {
         $this->AddCssFile(QCUBED_BOOTSTRAP_CSS); // make sure they know
@@ -99,32 +111,25 @@ class Sidebar extends \QCubed\Control\Panel
         Bs\Bootstrap::loadJS($this);
     }
 
-    //public function validate() {return true;}
-
-    //public function parsePostData() {}
+    /**
+     * Validates the current object or data.
+     *
+     * @return bool Always returns true indicating successful validation.
+     */
+    public function validate() {return true;}
 
     /**
-     * Set the node params callback. The callback should be of the form:
-     * func($objItem)
-     * The callback will be give the raw node from the data source, and the item's index.
-     * The function should return a key/value array with the following possible items:
+     * Parses the data received from a POST request.
      *
-     * id - the id for the node tag
-     * parent_id - the parent_id for the node tag
-     * depth - the depth for the node tag
-     * left - the left for the node tag
-     * right - the right for the node tag
-     * menu_text - the menu_text for the node tag
-     * redirect_url - the redirect_url for the node tag
-     * is_redirect - the is_redirect for the node tag
-     * selected_page_id - the selected_page_id for the node tag
-     * content_type_object - the content_type_object for the node tag
-     * content_type - the content_type for the node tag
-     * status - the status for the node tag for the node tag
+     * @return void
+     */
+    public function parsePostData() {}
+
+    /**
+     * Sets the callback function that will create node parameters.
      *
-     * The callback is a callable, so can be of the form [$objControl, "func"]
-     *
-     * @param callable $callback
+     * @param callable $callback The function to be used for creating node parameters.
+     * @return void
      */
     public function createNodeParams(callable $callback)
     {
@@ -132,12 +137,11 @@ class Sidebar extends \QCubed\Control\Panel
     }
 
     /**
-     * Uses HTML callback to get each loop in the original array. Relies on the NodeParamsCallback
-     * to return information on how to draw each node.
+     * Retrieves raw item data based on the provided object item.
      *
-     * @param mixed $objItem
-     * @return string
-     * @throws \Exception
+     * @param mixed $objItem The item object to extract raw data from.
+     * @return array An associative array containing raw item parameters such as 'id', 'parent_id', 'depth', 'left', 'right', 'menu_text', 'status', 'redirect_url', 'homely_url', and 'target_type'.
+     * @throws \Exception If the nodeParamsCallback is not provided.
      */
     public function getItemRaw($objItem)
     {
@@ -182,6 +186,10 @@ class Sidebar extends \QCubed\Control\Panel
         if (isset($params['homely_url'])) {
             $intHomelyUrl = $params['homely_url'];
         }
+        $strExternalUrl = '';
+        if (isset($params['external_url'])) {
+            $strExternalUrl = $params['external_url'];
+        }
         $strTargetType = '';
         if (isset($params['target_type'])) {
             $strTargetType = $params['target_type'];
@@ -197,50 +205,51 @@ class Sidebar extends \QCubed\Control\Panel
             'status' => $intStatus,
             'redirect_url' => $strRedirectUrl,
             'homely_url' => $intHomelyUrl,
+            'external_url' => $strExternalUrl,
             'target_type' => $strTargetType
         ];
         return $vars;
     }
 
-
     /**
-     * Returns the HTML for the control.
-     * @return string
-     * @throws Caller
-     * @throws \Exception
+     * Generate HTML for the control based on the data source and assigned items.
+     *
+     * @return string|null The generated HTML or null if the data source or assigned items are not set.
      */
     protected function getControlHtml()
     {
-        //$this->dataBind();
+        $this->dataBind();
 
         if (empty($this->objDataSource)) {
             $this->objDataSource = null;
         }
 
+        if (empty($this->objAssignedItems)) {
+            $this->objAssignedItems = null;
+        }
+
         $this->strParams = [];
 
-        if ($this->objDataSource) {
+        if ($this->objDataSource && $this->objAssignedItems) {
             foreach ($this->objDataSource as $objObject) {
-                $this->strParams[] = $this->getItemRaw($objObject);
+                if (in_array($objObject->Id, $this->objAssignedItems))
+                    $this->strParams[] = $this->getItemRaw($objObject);
             }
-        }
 
-        if ($this->strSubTagClass) {
-            $attributes['class'] = $this->strSubTagClass;
-        } else {
-            $attributes = '';
+            $strHtml = $this->renderMenuTree($this->strParams);
+            $this->objDataSource = null;
+            $this->objAssignedItems = null;
+            return $strHtml;
         }
-
-        $strOut = $this->renderMenuTree($this->strParams);
-        $strHtml = $this->renderTag('nav', $attributes, null, $strOut);
-        $this->objDataSource = null;
-        return $strHtml;
     }
 
     /**
-     * @throws Caller
+     * Binds data to the component by running the DataBinder if the data source is not set,
+     * the component has a DataBinder, and the component has not yet been rendered.
+     *
+     * @return void
      */
-    /*public function dataBind()
+    public function dataBind()
     {
         // Run the DataBinder (if applicable)
         if (($this->objDataSource === null) && ($this->hasDataBinder()) && (!$this->blnRendered)) {
@@ -251,10 +260,12 @@ class Sidebar extends \QCubed\Control\Panel
                 throw $objExc;
             }
         }
-    }*/
+    }
 
     /**
-     * Fix up possible embedded reference to the form.
+     * Puts the current process to sleep by handling node parameters callback through sleepHelper.
+     *
+     * @return void
      */
     public function sleep()
     {
@@ -263,8 +274,10 @@ class Sidebar extends \QCubed\Control\Panel
     }
 
     /**
-     * The object has been unserialized, so fix up pointers to embedded objects.
-     * @param FormBase $objForm
+     * Wakes up the current process by handling node parameters callback through wakeupHelper.
+     *
+     * @param FormBase $objForm The form object to be used during the wakeup process.
+     * @return void
      */
     public function wakeup(FormBase $objForm)
     {
@@ -273,13 +286,16 @@ class Sidebar extends \QCubed\Control\Panel
     }
 
     /**
-     * @param $arrParams
-     * @return string
+     * Renders a nested menu tree based on the given parameters.
+     *
+     * @param array $arrParams An array of menu node parameters, where each node contains
+     *                         details like id, parent_id, depth, left, right, menu_text,
+     *                         status, redirect_url, homely_url, external_url, and target_type.
+     * @return string The generated HTML string representing the menu tree.
      */
     protected function renderMenuTree($arrParams)
     {
         $strHtml = '';
-        $strHtml .= '<' . $this->strSubTagName . '>';
 
         for ($i = 0; $i < count($arrParams); $i++)
         {
@@ -292,46 +308,50 @@ class Sidebar extends \QCubed\Control\Panel
             $this->intStatus = $arrParams[$i]['status'];
             $this->strRedirectUrl = $arrParams[$i]['redirect_url'];
             $this->intHomelyUrl = $arrParams[$i]['homely_url'];
+            $this->strExternalUrl = $arrParams[$i]['external_url'];
             $this->strTargetType = $arrParams[$i]['target_type'];
 
-            if ($this->intStatus !== 0 && $this->intParentId !== null && $this->intDepth > 0) {
-                if ($this->intDepth == $this->intCurrentDepth) {
-                    if ($this->intCounter > 0)
-                        $strHtml .= '</li>';
-                } elseif ($this->intDepth > $this->intCurrentDepth) {
-                    $strHtml .= _nl() . '<' . $this->strSubTagName . '>';
-                    $this->intCurrentDepth = $this->intCurrentDepth + ($this->intDepth - $this->intCurrentDepth);
-                } elseif ($this->intDepth < $this->intCurrentDepth) {
-                    $strHtml .= str_repeat('</li>' . _nl() . '</' . $this->strSubTagName . '>', $this->intCurrentDepth - $this->intDepth) . '</li>';
-                    $this->intCurrentDepth = $this->intCurrentDepth - ($this->intCurrentDepth - $this->intDepth);
-                }
-
-                $url = isset($_SERVER['HTTPS']) ? "https" : "http" . '://' . $_SERVER['HTTP_HOST'] . QCUBED_URL_PREFIX;
-                $target = ' target="' . $this->strTargetType . '"';
-
-                $strHtml .= _nl() . '<li id="' . $this->strControlId . '_' . $this->intId . '">';
-
-                if ($this->intHomelyUrl) {
-                    $strHtml .= '<a href="' . $url . $this->strRedirectUrl . '">';
-                } elseif (strlen($this->strTargetType)) {
-                    $strHtml .= '<a href="' . $this->strRedirectUrl . '"' . $target . '>';
-                } else {
-                    $strHtml .= '<a href="' . $this->strRedirectUrl . '">';
-                }
-                $strHtml .= $this->strMenuText;
-                $strHtml .= '</a>';
-                ++$this->intCounter;
+            if ($this->intStatus == 2 || $this->intStatus == 3) {
+                continue;
             }
+
+            $target = '';
+            if (!empty($this->strTargetType)) {
+                $target = ' target="' . $this->strTargetType . '"';
+            }
+
+            // We determine the correct link
+            $link = ($this->intHomelyUrl === 1) ? $this->strRedirectUrl : $this->strExternalUrl;
+
+            if ($this->intDepth == $this->intCurrentDepth) {
+                if ($this->intCounter > 0) $strHtml .= '</li>';
+            } elseif ($this->intDepth> $this->intCurrentDepth) {
+                $strHtml .= _nl() . '<' . $this->strSubTagName . '>';
+                $this->intCurrentDepth = $this->intCurrentDepth + ($this->intDepth - $this->intCurrentDepth);
+            } elseif ($this->intDepth < $this->intCurrentDepth) {
+                $strHtml .= str_repeat('</li>' . _nl() . '</' . $this->strSubTagName . '>', $this->intCurrentDepth - $this->intDepth) . '</li>';
+                $this->intCurrentDepth = $this->intCurrentDepth - ($this->intCurrentDepth - $this->intDepth);
+            }
+
+            $strHtml .= _nl() . '<li id="' . $this->ControlId . '_' . $this->intId . '">';
+            $strHtml .= '<a href="' . $link . '"' . $target . '>';
+            $strHtml .= $this->strMenuText;
+
+            $strHtml .= '</a>';
+            ++$this->intCounter;
         }
-        $strHtml .= str_repeat('</li>' . _nl() . '</' . $this->strSubTagName . '>', $this->intDepth);
-        $strHtml .= '</' . $this->strSubTagName . '>';
+
+        $strHtml .= str_repeat('</li>' . _nl() . '</' . $this->strSubTagName . '>', $this->intDepth) . '</li>';
+
         return $strHtml;
     }
 
     /**
-     * @param $objArrays
-     * @param $value
-     * @return string
+     * Retrieves a list of child element IDs from the provided array of objects based on the specified parent ID.
+     *
+     * @param array $objArrays An array of objects, each expected to have 'ParentId' and 'Id' properties.
+     * @param mixed $value The parent ID used to filter child elements. Default is null.
+     * @return array An array containing IDs of all child elements.
      */
     public function getChildren($objArrays, $value = null)
     {
@@ -355,14 +375,23 @@ class Sidebar extends \QCubed\Control\Panel
         ControlBase::refresh();
     }
 
+    /**
+     * Creates a jQuery widget for handling submenu item clicks and highlighting the active link.
+     * This method registers a JavaScript function that adds an 'active' class to the clicked submenu item
+     * and removes it from any previously active items.
+     *
+     * @return void
+     */
     public function makeJqWidget()
     {
-        Application::executeControlCommand($this->ControlId, 'on', 'click', 'li',
-            new Js\Closure("jQuery(this).trigger('sidebarselect', this.id); return false;"), //  return false;
-            Application::PRIORITY_HIGH);
+        /**
+         * To draw or test the menu, the js code is temporarily placed here at the end: "return false;".
+         * This part of the code usually needs to be changed to "return true;" for the links to work properly.
+         */
 
         Application::executeSelectorFunction(".submenu", "on", "click", "a",
-            new Js\Closure("jQuery('a.active').removeClass('active'); jQuery(this).addClass('active');"),
+            new Js\Closure("jQuery('a.active').removeClass('active'); jQuery(this).addClass('active');
+            return false;"),
             Application::PRIORITY_HIGH);
     }
 
@@ -378,28 +407,20 @@ class Sidebar extends \QCubed\Control\Panel
     public function __get($strName)
     {
         switch ($strName) {
-            case "Id":
-                return $this->intId;
-            case "ParentId":
-                return $this->intParentId;
-            case "Depth":
-                return $this->intDepth;
-            case "Left":
-                return $this->intLeft;
-            case "Right":
-                return $this->intRight;
-            case "MenuText":
-                return $this->strMenuText;
-            case "Status":
-                return $this->intStatus;
-            case "RedirectUrl":
-                return $this->strRedirectUrl;
-            case "SubTagName":
-                return $this->strSubTagName;
-            case "SubTagClass":
-                return $this->strSubTagClass;
-            case "DataSource":
-                return $this->objDataSource;
+            case "Id": return $this->intId;
+            case "ParentId": return $this->intParentId;
+            case "Depth": return $this->intDepth;
+            case "Left": return $this->intLeft;
+            case "Right": return $this->intRight;
+            case "MenuText": return $this->strMenuText;
+            case "Status": return $this->intStatus;
+            case "RedirectUrl": return $this->strRedirectUrl;
+            case "HomelyUrl": return $this->intHomelyUrl;
+            case "ExternalUrl": return $this->strExternalUrl;
+            case "TargetType": return $this->strTargetType;
+            case "SubTagName": return $this->strSubTagName;
+            case "DataSource": return $this->objDataSource;
+            case "AssignedItems": return $this->objAssignedItems;
 
             default:
                 try {
@@ -499,6 +520,33 @@ class Sidebar extends \QCubed\Control\Panel
                     throw $objExc;
                 }
                 break;
+            case "HomelyUrlUrl":
+                try {
+                    $this->blnModified = true;
+                    $this->intHomelyUrl = Type::Cast($mixValue, Type::INTEGER);
+                } catch (InvalidCast $objExc) {
+                    $objExc->IncrementOffset();
+                    throw $objExc;
+                }
+                break;
+            case "ExternalUrl":
+                try {
+                    $this->blnModified = true;
+                    $this->strExternalUrl = Type::Cast($mixValue, Type::STRING);
+                } catch (InvalidCast $objExc) {
+                    $objExc->IncrementOffset();
+                    throw $objExc;
+                }
+                break;
+            case "TargetType":
+                try {
+                    $this->blnModified = true;
+                    $this->strTargetType = Type::Cast($mixValue, Type::STRING);
+                } catch (InvalidCast $objExc) {
+                    $objExc->IncrementOffset();
+                    throw $objExc;
+                }
+                break;
             case "SubTagName":
                 try {
                     $this->blnModified = true;
@@ -508,18 +556,18 @@ class Sidebar extends \QCubed\Control\Panel
                     throw $objExc;
                 }
                 break;
-            case "SubTagClass":
+            case "DataSource":
+                $this->objDataSource = $mixValue;
+                $this->blnModified = true;
+                break;
+            case "AssignedItems":
                 try {
                     $this->blnModified = true;
-                    $this->strSubTagClass = Type::Cast($mixValue, Type::STRING);
+                    $this->objAssignedItems = Type::Cast($mixValue, Type::ARRAY_TYPE);
                 } catch (InvalidCast $objExc) {
                     $objExc->IncrementOffset();
                     throw $objExc;
                 }
-                break;
-            case "DataSource":
-                $this->objDataSource = $mixValue;
-                $this->blnModified = true;
                 break;
 
             default:

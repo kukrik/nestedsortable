@@ -1,7 +1,7 @@
 <div class="form-horizontal">
     <div class="form-body">
         <div class="row">
-            <div class="col-md-offset-3 col-md-9">
+            <div class="col-md-12">
                 <?= _r($this->lblInfo); ?>
             </div>
         </div>
@@ -35,13 +35,12 @@
                 <?= _r($this->txtTitleSlug); ?>
             </div>
         </div>
-        <div class="form-actions fluid">
-            <div class="col-md-offset-3 col-md-12">
-                <?= _r($this->btnSave); ?>
-                <?= _r($this->btnSaving); ?>
-                <?= _r($this->btnCancel); ?>
+        <div class="row">
+            <div class="col-md-offset-3 col-md-9">
+                <?= _r($this->btnBack); ?>
             </div>
         </div>
+        <div class="form-actions fluid" style="height: 74px;"></div>
     </div>
 </div>
 

@@ -3,9 +3,9 @@
  * Translation shortcuts specific to this library
  */
 
-namespace QCubed\Plugin;    //Kukrik\NestedSortable;	// include this file in your namespace so that the functions defined below are unique to your library
+namespace QCubed\Plugin; // include this file in your namespace so that the functions defined below are unique to your library
 
-const I18N_DOMAIN = 'kukrik/nestedsortable/i18n'; // replace this with your package name
+const I18N_DOMAIN = 'kukrik/nestedsortable'; // replace this with your package name
 
 /**
  * Translation function specific to your package.

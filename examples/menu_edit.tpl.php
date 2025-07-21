@@ -6,14 +6,7 @@ if ($this->objMenuContent->ContentType) {
     $strContentType = $this->objMenuContent->ContentType ? $strOn : $strNo;
     $strPageTitle = $strContentType;
 }
-<<<<<<< HEAD
 ?>
-=======
-
-?>
-
-<?php $strPageTitle = ContentType::toTabsText($this->objMenuContent->ContentType); ?>
->>>>>>> e13f07690e8ece73be88585026b6a810c8f7b519
 
 <?php require('header.inc.php'); ?>
 
@@ -22,12 +15,10 @@ if ($this->objMenuContent->ContentType) {
 <?php $this->RenderBegin(); ?>
 
 <div class="page-container">
-    <div class="page-content-wrapper">
-        <div class="page-content">
-            <div class="row">
-                <div class="col-md-12">
-                    <?= _r($this->nav); ?>
-                </div>
+    <div class="page-content">
+        <div class="row">
+            <div class="col-md-12">
+                <?= _r($this->nav); ?>
             </div>
         </div>
     </div>

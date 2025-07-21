@@ -5,7 +5,6 @@
 <?php // require(QCUBED_CONFIG_DIR . '/header.inc.php'); ?>
 
 <?php $this->RenderBegin(); ?>
-
 <!-- BEGIN CONTENT -->
 <div class="page-content-wrapper">
     <div class="page-content">
@@ -40,7 +39,6 @@
                                     <?= _r($this->tblList); ?>
                                 </div>
                             </div>
-
                             <div class="row">
                                 <div class="col-md-12" style="margin-bottom: 10px;">
                                     <h4>Example: Bootstrap Navbar</h4>
@@ -70,7 +68,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="row">
                                 <div class="col-md-12" style="margin-bottom: 10px;">
                                     <h4>Example: SmartMenus Bootstrap Addon (Navbar)</h4>
@@ -101,7 +98,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="row">
                                 <div class="col-md-12" style="margin-bottom: 10px;">
                                     <h4>Example: Using Bootstrap Navbar with SideBar</h4>
@@ -115,11 +111,14 @@
                                     <?= _r($this->sideMenu); ?>
                                 </div>
                             </div>
-
                             <div class="row">
-                                <div class="col-md-3" style="width: 23%; margin-left: 4px;">
+                                <div class="col-md-3">
                                     <div id="sidebar">
-                                        <?= _r($this->tblSubMenu); ?>
+                                        <nav class="submenu">
+                                            <ul>
+                                                <?= _r($this->tblSubMenu); ?>
+                                            </ul>
+                                        </nav>
                                     </div>
                                 </div>
                                 <div class="col-md-9" style="border: #ccc 2px dotted; min-height: 320px;">
@@ -138,7 +137,6 @@
                                         Dolorum complectitur at mel. His corrumpit expetendis in, ut usu posse movet,
                                         praesent dignissim has no.</p>
                                 </div>
-
                                 <div class="row">
                                     <div class="col-md-12" style="margin-bottom: 20px;">
                                         <h4>Example: NestedSidebar</h4>
@@ -150,9 +148,8 @@
                                             or php.</p>
                                     </div>
                                 </div>
-
                                 <div class="row">
-                                    <div class="col-md-3" style="width: 23%; margin-left: 4px;">
+                                    <div class="col-md-3">
                                         <div id="nestedmenu">
                                             <?= _r($this->tblNestedMenu); ?>
                                         </div>
@@ -174,7 +171,6 @@
                                             praesent dignissim has no.</p>
                                     </div>
                                 </div>
-
                                 <div class="row">
                                     <div class="col-md-12" style="margin-top: 10px; margin-bottom: 10px;">
                                         <h4>Summary</h4>
@@ -183,8 +179,6 @@
                                             the developer will choose for themselves.</p>
                                     </div>
                                 </div>
-
-
                             </div>
                             <!-- MENU CONTAINER BEGIN -->
                         </div>

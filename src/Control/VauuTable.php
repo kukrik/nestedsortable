@@ -23,9 +23,9 @@ use QCubed\Type;
 use QCubed\QString;
 use QCubed\Html;
 
-if (!defined('QCUBED_FONT_AWESOME_CSS')) {
-    define('QCUBED_FONT_AWESOME_CSS', 'https://opensource.keycdn.com/fontawesome/4.6.3/font-awesome.min.css');
-}
+//if (!defined('QCUBED_FONT_AWESOME_CSS')) {
+//    define('QCUBED_FONT_AWESOME_CSS', 'https://opensource.keycdn.com/fontawesome/4.6.3/font-awesome.min.css');
+//}
 
 /**
  * Class VauuTable
@@ -39,6 +39,10 @@ if (!defined('QCUBED_FONT_AWESOME_CSS')) {
  *
  * This class is NOT intended to support column filters, but a subclass could be created that could do so. Just don't
  * do that here.
+ *
+ * @property boolean $SortableAsHeader If true, columns in the table header are sortable by clicking on them.
+ *                                     Default is true, which enables sorting icons and functionality in the header.
+ *                                     If set to false, sorting is disabled, and no icons or clickable links are rendered in the header.
  *
  * @property boolean $RenderAsHeader if true, all cells in the column will be rendered with a <<th>> tag instead of <<td>>
  * @property-read  QQClause $OrderByClause The sorting clause based on the selected headers.
@@ -58,6 +62,9 @@ class VauuTable extends \QCubed\Control\TableBase
     protected $blnHtmlEntities = true;
     /** @var boolean */
     protected $blnRenderAsHeader = false;
+
+    /** @var boolean Checks whether column headings are sortable. */
+    protected $blnSortableAsHeader = true;
 
     /** @var int Couter to generate column ids for columns that do not have them. */
     protected $intLastColumnId = 0;
@@ -99,7 +106,7 @@ class VauuTable extends \QCubed\Control\TableBase
     {
         $strHtml = '';
         if ($this->strCaption) {
-            $strHtml .= '<caption>' . QString::htmlEntities($this->strCaption) . '</caption>' . _nl();
+            $strHtml .= '<caption>' . $this->strCaption . '</caption>' . _nl();
         }
         return $strHtml;
     }
@@ -293,11 +300,13 @@ class VauuTable extends \QCubed\Control\TableBase
                         $strCellValue = $this->getHeaderCellContent($objColumn);
                         $aParams = $objColumn->getHeaderCellParams();
                         $aParams['id'] = $objColumn->Id;
-                        if ($objColumn->OrderByClause) {
-                            if (isset($aParams['class'])) {
-                                $aParams['class'] .= ' ' . 'sortable';
-                            } else {
-                                $aParams['class'] = 'sortable';
+                        if ($this->blnSortableAsHeader) {
+                            if ($objColumn->OrderByClause) {
+                                if (isset($aParams['class'])) {
+                                    $aParams['class'] .= ' ' . 'sortable';
+                                } else {
+                                    $aParams['class'] = 'sortable';
+                                }
                             }
                         }
                         $strCells .= Q\Html::renderTag('th', $aParams, $strCellValue);
@@ -318,6 +327,11 @@ class VauuTable extends \QCubed\Control\TableBase
      */
     protected function getHeaderCellContent(DataColumn $objColumn)
     {
+        // Kui sorteerimine on keelatud päises
+        if (!$this->blnSortableAsHeader) {
+            return $objColumn->fetchHeaderCellValue();
+        }
+
         $blnSortable = false;
         $strCellValue = $objColumn->fetchHeaderCellValue();
         if ($objColumn->HtmlEntities) {
@@ -459,21 +473,13 @@ class VauuTable extends \QCubed\Control\TableBase
     public function __get($strName)
     {
         switch ($strName) {
-            case 'HtmlEntities':
-                return $this->blnHtmlEntities;
-            case "OrderByClause":
-                return $this->getOrderByInfo();
-
-            case "SortColumnId":
-                return $this->strSortColumnId;
-            case "SortDirection":
-                return $this->intSortDirection;
-
-            case "SortColumnIndex":
-                return $this->getSortColumnIndex();
-
-            case "SortInfo":
-                return ['id' => $this->strSortColumnId, 'dir' => $this->intSortDirection];
+            case 'SortableAsHeader': return $this->blnSortableAsHeader;
+            case 'HtmlEntities': return $this->blnHtmlEntities;
+            case "OrderByClause": return $this->getOrderByInfo();
+            case "SortColumnId": return $this->strSortColumnId;
+            case "SortDirection": return $this->intSortDirection;
+            case "SortColumnIndex": return $this->getSortColumnIndex();
+            case "SortInfo": return ['id' => $this->strSortColumnId, 'dir' => $this->intSortDirection];
 
             default:
                 try {
@@ -495,6 +501,15 @@ class VauuTable extends \QCubed\Control\TableBase
     public function __set($strName, $mixValue)
     {
         switch ($strName) {
+            case "SortableAsHeader":
+                try {
+                    $this->blnSortableAsHeader = Type::cast($mixValue, Type::BOOLEAN);
+                    break;
+                } catch (InvalidCast $objExc) {
+                    $objExc->incrementOffset();
+                    throw $objExc;
+                }
+
             case "HtmlEntities":
                 try {
                     $this->blnHtmlEntities = Type::cast($mixValue, Type::BOOLEAN);

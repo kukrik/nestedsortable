@@ -1,6 +1,9 @@
 <?php
 	require(QCUBED_PROJECT_MODEL_GEN_DIR . '/NewsGen.php');
 
+use QCubed\Query\QQ;
+//use QCubed\Query\Clause\ClauseInterface as iClause;
+
 	/**
 	 * The News class defined here contains anyreturn t($this->getWrittenStatus());
 	 * customized code for the News class in the
@@ -22,7 +25,25 @@
 		 * @return string a nicely formatted string representation of this object
 		 */
 		public function __toString() {
-			return 'News Object ' . $this->PrimaryKey();
+			return $this->getAssignedByUserObject()->getFirstname() . ' ' .  $this->getAssignedByUserObject()->getLastName();
+		}
+
+		/**
+		 * Load News one object - Id,
+		 * by Id Index(es)
+		 * @param integer $intNewsGroupId
+		 * @param iClause[] $objOptionalClauses additional optional iClause objects for this query
+		 * @return News
+		 */
+		public static function loadByIdFromNewsGroupId($intNewsGroupId, $objOptionalClauses = null)
+		{
+			// Use QuerySingle to Perform the Query
+			$objToReturn = News::querySingle(
+				QQ::AndCondition(
+					QQ::Equal(QQN::News()->NewsGroupId, $intNewsGroupId)
+				), $objOptionalClauses
+			);
+			return $objToReturn;
 		}
 
 		public function setUserNameById($key)
@@ -39,7 +60,6 @@
 		{
 			if ($this->getNewsCategoryId() == $key) {
 				$this->Category = $this->getNewsCategory()->getName();
-				$this->save();
 			}
 		}
 

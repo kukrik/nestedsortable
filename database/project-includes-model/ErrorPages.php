@@ -1,8 +1,8 @@
 <?php
 	require(QCUBED_PROJECT_MODEL_GEN_DIR . '/ErrorPagesGen.php');
 
-use QCubed\Query\QQ;
-//use QCubed\Query\Clause\ClauseInterface as iClause;
+    use QCubed\Query\QQ;
+    use QCubed\Query\Clause\ClauseInterface as iClause;
 
 	/**
 	 * The ErrorPages class defined here contains any
@@ -25,9 +25,8 @@ use QCubed\Query\QQ;
 		 * @return string a nicely formatted string representation of this object
 		 */
 		public function __toString() {
-			return 'ErrorPages Object ' . $this->PrimaryKey();
+			return $this->getAssignedByUserObject()->getFirstname() . ' ' .  $this->getAssignedByUserObject()->getLastName();
 		}
-
 
 		/**
 		 * Load ErrorPages one object - Id,
@@ -45,6 +44,17 @@ use QCubed\Query\QQ;
 				), $objOptionalClauses
 			);
 			return $objToReturn;
+		}
+
+		public function getAssignedEditorsNameById($key)
+		{
+			if ($this->getAssignedByUserObject()->Id !== $key) {
+				if (!$this->isUserAsEditorsAssociatedByKey($key)) {
+					$this->AssociateUserAsEditorsByKey($key);
+				} else {
+					// do nothing
+				}
+			}
 		}
 
 		// Override or Create New Load/Count methods
