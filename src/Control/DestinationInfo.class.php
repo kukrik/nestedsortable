@@ -3,28 +3,34 @@
 namespace QCubed\Plugin\Control;
 
 use QCubed as Q;
-use QCubed\Bootstrap as Bs;
+use QCubed\Control\Panel;
 use QCubed\Project\Control\ControlBase;
-use QCubed\Project\Control\FormBase as Form;
-use QCubed\Action\ActionParams;
+use QCubed\Project\Control\FormBase;
+use QCubed\Exception\Caller;
 
 /**
- * A panel control that displays information about a destination.
  *
- * This control includes labels for the title and path of the destination.
  */
-class DestinationInfo extends Q\Control\Panel
+class DestinationInfo extends Panel
 {
-    protected $lblCheckTitle;
-    protected $lblCheckPath;
+    protected Q\Plugin\Label $lblCheckTitle;
+    protected Q\Plugin\Label $lblCheckPath;
 
-    protected $strTemplate = 'DestinationInfo.tpl.php';
+    protected string $strTemplate = 'DestinationInfo.tpl.php';
 
-    public function __construct($objParentObject, $strControlId = null)
+    /**
+     * Constructor for initializing a control or form object.
+     *
+     * @param ControlBase|FormBase $objParentObject Parent object that owns this control.
+     * @param null $strControlId Optional control ID. If null, a default ID will be generated.
+     *
+     * @throws Caller
+     */
+    public function __construct(ControlBase|FormBase $objParentObject, $strControlId = null)
     {
         try {
             parent::__construct($objParentObject, $strControlId);
-        } catch (\QCubed\Exception\Caller $objExc) {
+        } catch (Caller $objExc) {
             $objExc->IncrementOffset();
             throw $objExc;
         }

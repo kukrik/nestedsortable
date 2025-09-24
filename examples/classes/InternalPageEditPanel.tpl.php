@@ -3,7 +3,6 @@
     .select2-container--web-vauu .select2-results__option {
         padding: 4px 12px; }
 </style>
-
 <div class="form-horizontal">
     <div class="form-body">
         <div class="form-group">

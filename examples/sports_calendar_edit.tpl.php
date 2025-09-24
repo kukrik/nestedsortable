@@ -1,5 +1,4 @@
 <?php $strPageTitle = t('Calendar event edit'); ?>
-
 <?php require('header.inc.php'); ?>
 <?php $this->RenderBegin(); ?>
 <style>
@@ -24,20 +23,6 @@
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <?= _r($this->lblInstitutions); ?>
-                                    <div class="col-md-8">
-                                        <?= _r($this->lstInstitutions); ?>
-                                        <?= _r($this->btnGoToInstitutions); ?>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <?= _r($this->lblSportsAreas); ?>
-                                    <div class="col-md-8">
-                                        <?= _r($this->lstSportsAreas); ?>
-                                        <?= _r($this->btnGoToSportsAreas); ?>
-                                    </div>
-                                </div>
-                                <div class="form-group">
                                     <?= _r($this->lblTitle); ?>
                                     <div class="col-md-8">
                                         <?= _r($this->txtTitle); ?>
@@ -48,6 +33,20 @@
                                     <div class="col-md-8">
                                         <?= _r($this->lstChanges); ?>
                                         <?= _r($this->btnGoToChanges); ?>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <?= _r($this->lblSportsAreas); ?>
+                                    <div class="col-md-8">
+                                        <?= _r($this->lstSportsAreas); ?>
+                                        <?= _r($this->btnGoToSportsAreas); ?>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <?= _r($this->lblInstitutions); ?>
+                                    <div class="col-md-8">
+                                        <?= _r($this->lstInstitutions); ?>
+                                        <?= _r($this->btnGoToInstitutions); ?>
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -142,14 +141,13 @@
                                         <?= _r($this->calShowDate); ?>
                                     </div>
                                 </div>
-                                <div class="row" style="margin-bottom: 20px;">
+                                <div class="row"> <!-- style="margin-bottom: 20px;"  -->
                                     <div class="col-md-offset-3 col-md-9">
                                         <?= _r($this->txtLinkTitle); ?>
                                         <?= _r($this->btnDownloadSave); ?>
                                         <?= _r($this->btnDownloadCancel); ?>
                                     </div>
                                 </div>
-
                                 <div class="row">
                                     <div class="col-md-12">
                                         <?= _r($this->dtgSelectedList); ?>
@@ -165,7 +163,7 @@
                                     </div>
                                 </div>
                                 <div class="row">
-                                    <div class="col-md-12" style="margin-top: 15px; text-align: right;">
+                                    <div class="col-md-12" style="text-align: right;">
                                         <?= _r($this->btnSelectedSave); ?>
                                         <?= _r($this->btnSelectedCheck); ?>
                                         <?= _r($this->btnSelectedDelete); ?>
@@ -173,7 +171,7 @@
                                     </div>
                                 </div>
                                 <script>
-                                    var bsCssPath = <?= json_encode(QCUBED_BOOTSTRAP_CSS, JSON_UNESCAPED_UNICODE); ?>;
+                                    const bsCssPath = <?= json_encode(QCUBED_BOOTSTRAP_CSS, JSON_UNESCAPED_UNICODE); ?>;
                                     ckConfig = {
                                         skin: 'moono',
                                         width: '100%',
@@ -196,7 +194,7 @@
                                     ckConfig.removePlugins = 'link,image';
                                 </script>
                                 <div class="form-group">
-                                    <div class="col-md-12">
+                                    <div class="col-md-12" style="margin-top: -15px;">
                                         <?= _r($this->lblInformation); ?>
                                     </div>
                                 </div>
@@ -262,15 +260,5 @@
         </div>
     </div>
 </div>
-
 <?php $this->RenderEnd(); ?>
-
 <?php require('footer.inc.php'); ?>
-
-<?php // require(QCUBED_CONFIG_DIR . '/footer.inc.php'); ?>
-
-
-
-
-
-

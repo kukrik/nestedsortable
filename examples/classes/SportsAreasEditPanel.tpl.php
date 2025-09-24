@@ -35,25 +35,12 @@
                 <?= _r($this->txtTitleSlug); ?>
             </div>
         </div>
-
         <div class="row">
             <div class="col-md-offset-3 col-md-9">
                 <?= _r($this->btnGoToMenu); ?>
                 <?= _r($this->btnGoToView); ?>
             </div>
         </div>
-
-        <div class="form-actions fluid">
-            <div class="col-md-offset-3 col-md-12">
-                <?= _r($this->btnSave); ?>
-            </div>
-        </div>
+        <div class="form-actions fluid" style="height: 74px;"></div>
     </div>
 </div>
-
-
-
-
-
-
-

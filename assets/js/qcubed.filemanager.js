@@ -487,6 +487,7 @@
                 a.className = "files-a folder-a";
                 a.setAttribute("data-type", "media-item");
                 a.setAttribute("data-id", e.id);
+                a.setAttribute("data-parent-id", e.parent_id);
                 a.setAttribute("data-path", e.path);
                 a.setAttribute("data-name", e.name);
                 a.setAttribute("data-item-type", e.type);
@@ -541,9 +542,9 @@
                 if (e.activities_locked === 1) {
                     status.appendChild(status_y);
                 }
-                files_data.appendChild(dimensions);
                 files_data.appendChild(ext);
                 files_data.appendChild(size);
+                files_data.appendChild(dimensions);
                 files_data.appendChild(date);
                 date.appendChild(dayjs);
 
@@ -604,16 +605,17 @@
                 const status_y = document.createElement("i");
                 status_y.className = "fa fa-circle fa-lg";
                 status_y.style = "color:#e6a91a";
-                const dimensions = document.createElement("span");
-                dimensions.className = "dimensions";
-                if (allowedExt.includes(extension) && extension !== 'svg') {
-                    dimensions.innerText = e.dimensions;
-                } else {
-                    dimensions.innerText = String.fromCharCode(160);
-                }
                 const ext = document.createElement("span");
                 ext.className = "ext";
                 ext.innerText = e.extension;
+                const dimensions = document.createElement("span");
+                if (allowedExt.includes(extension)) {
+                    dimensions.className = "dimensions";
+                    dimensions.innerText = e.dimensions;
+                } else {
+                    dimensions.className = "dimensions";
+                    dimensions.innerText = String.fromCharCode(160);
+                }
                 const size = document.createElement("span");
                 size.className = "size";
                 size.innerText = readableBytes(e.size);
@@ -632,9 +634,9 @@
                 if (e.activities_locked === 1) {
                     status.appendChild(status_y);
                 }
-                files_data.appendChild(dimensions);
                 files_data.appendChild(ext);
                 files_data.appendChild(size);
+                files_data.appendChild(dimensions);
                 files_data.appendChild(date);
                 date.appendChild(dayjs);
             }
@@ -652,6 +654,7 @@
                 a.className = "files-a folder-a";
                 a.setAttribute("data-type", "media-item");
                 a.setAttribute("data-id", e.id);
+                a.setAttribute("data-parent-id", e.parent_id);
                 a.setAttribute("data-path", e.path);
                 a.setAttribute("data-name", e.name);
                 a.setAttribute("data-item-type", e.type);
@@ -679,15 +682,15 @@
                 const status_y = document.createElement("i");
                 status_y.className = "fa fa-circle fa-lg";
                 status_y.style = "color:#e6a91a";
-                const dimensions = document.createElement("span");
-                dimensions.className = "dimensions";
-                dimensions.innerText = String.fromCharCode(160);
                 const ext = document.createElement("span");
                 ext.className = "ext";
                 ext.innerText = String.fromCharCode(160);
                 const size = document.createElement("span");
                 size.className = "size";
                 size.innerText = String.fromCharCode(160);
+                const dimensions = document.createElement("span");
+                dimensions.className = "dimensions";
+                dimensions.innerText = String.fromCharCode(160);
                 const date = document.createElement("span");
                 date.className = "event";
                 date.setAttribute("data-time", e.mtime);
@@ -703,9 +706,9 @@
                 if (e.activities_locked === 1) {
                     status.appendChild(status_y);
                 }
-                files_data.appendChild(dimensions);
                 files_data.appendChild(ext);
                 files_data.appendChild(size);
+                files_data.appendChild(dimensions);
                 files_data.appendChild(date);
                 date.appendChild(dayjs);
 
@@ -735,7 +738,6 @@
                         div.classList.add("locked");
                     }
                 }
-
                 const files_data = document.createElement("div");
                 files_data.className = "files-data";
                 const span = document.createElement("span");
@@ -756,14 +758,6 @@
                 const status_y = document.createElement("i");
                 status_y.className = "fa fa-circle fa-lg";
                 status_y.style = "color:#e6a91a";
-                const dimensions = document.createElement("span");
-                dimensions.className = "dimensions";
-
-                if (allowedExt.includes(extension) && extension !== 'svg') {
-                    dimensions.innerText = e.dimensions;
-                } else {
-                    dimensions.innerText = String.fromCharCode(160);
-                }
                 const ext = document.createElement("span");
                 ext.className = "ext";
                 ext.innerText = e.extension;
@@ -771,6 +765,13 @@
                 size.className = "size";
                 size.innerText = readableBytes(e.size);
                 const date = document.createElement("span");
+                const dimensions = document.createElement("span");
+                dimensions.className = "dimensions";
+                if (allowedExt.includes(extension)) {
+                    dimensions.innerText = e.dimensions;
+                } else {
+                    dimensions.innerText = String.fromCharCode(160);
+                }
                 date.className = "event";
                 date.setAttribute("data-time", e.mtime);
                 const dayjs = document.createElement("time");
@@ -785,9 +786,9 @@
                 if (e.activities_locked === 1) {
                     status.appendChild(status_y);
                 }
-                files_data.appendChild(dimensions);
                 files_data.appendChild(ext);
                 files_data.appendChild(size);
+                files_data.appendChild(dimensions);
                 files_data.appendChild(date);
                 date.appendChild(dayjs);
             }
@@ -805,6 +806,7 @@
                 a.className = "files-a folder-a files-blocks";
                 a.setAttribute("data-type", "media-item");
                 a.setAttribute("data-id", e.id);
+                a.setAttribute("data-parent-id", e.parent_id);
                 a.setAttribute("data-path", e.path);
                 a.setAttribute("data-name", e.name);
                 a.setAttribute("data-item-type", e.type);

@@ -71,6 +71,12 @@ span.ready {}
     direction: ltr;
     cursor: pointer;
 }
+.fileinput-button.disabled,
+.fileinput-button.disabled input[type="file"]
+{
+    cursor: not-allowed !important;
+}
+
 /* Fixes for IE < 8 */
 @media screen\9 {
     .fileinput-button input {

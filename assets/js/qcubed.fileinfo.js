@@ -216,15 +216,12 @@
                     if (imageExt.includes(e[0]['data-extension'])) {
                         if (e[0]['data-extension'] !== 'svg') {
                             img.src = options.tempUrl + '/_files/thumbnail' + e[0]['data-path'];
-                            dimension.innerText = e[0]['data-dimensions'];
-                            dimension.classList.remove("hidden");
-                            info_dimension.classList.remove("hidden");
                         } else {
                             img.src = options.rootUrl + e[0]['data-path'];
-                            dimension.innerText = e[0]['data-dimensions'];
-                            dimension.classList.add("hidden");
-                            info_dimension.classList.add("hidden");
                         }
+                        dimension.innerText = e[0]['data-dimensions'];
+                        dimension.classList.remove("hidden");
+                        info_dimension.classList.remove("hidden");
 
                         name.innerText = e[0]['data-name'];
                         extension.innerHTML = getFileIconExtension(e[0]['data-extension']);

@@ -1,143 +1,231 @@
 <?php
 
-use QCubed\Query\Condition\ConditionInterface as QQCondition;
-use QCubed\Query\Clause\ClauseInterface as QQClause;
-use QCubed\Table\NodeColumn;
-use QCubed\Project\Control\ControlBase;
-use QCubed\Project\Control\FormBase;
-use QCubed\Type;
-use QCubed\Exception\Caller;
-use QCubed\Query\QQ;
-use QCubed\Project\Application;
+    use QCubed\Plugin\Control\VauuTable;
+    use QCubed\Exception\Caller;
+    use QCubed\Exception\InvalidCast;
+    use QCubed\Query\Condition\All;
+    use QCubed\Query\Condition\AndCondition;
+    use QCubed\Query\Condition\ConditionInterface as QQCondition;
+    use QCubed\Query\QQ;
+    use QCubed\Type;
 
+    /**
+     * The FrontendConfigurationTable class represents a table control specifically for managing frontend configurations.
+     * It extends the VauuTable class, adding functionality to handle custom data binding and column creation for
+     * frontend configuration entities.
+     */
+    class FrontendConfigurationTable extends VauuTable
+    {
+        protected ?object $objCondition = null;
+        protected ?array $objClauses = null;
 
-class FrontendConfigurationTable extends \QCubed\Plugin\Control\VauuTable
-{
-	protected $objCondition;
-	protected $objClauses;
+        public object $colId;
+        public object $colFrontendTemplateName;
+        public object $colClassNames;
+        public object $colContentType;
+        public object $colViewType;
+        public object $colFrontendTemplatePath;
+        public object $colStatus;
 
-	public $colId;
-    public $colFrontendTemplateName;
-    public $colClassNames;
-	public $colContentType;
-	public $colViewType;
-    public $colFrontendTemplatePath;
-	public $colStatus;
+        /**
+         * Constructor method for initializing the object with a parent object and an optional control ID.
+         *
+         * @param mixed $objParent The parent object to which this object is attached.
+         * @param string|null $strControlId An optional identifier for the control.
+         *
+         * @return void
+         * @throws Caller
+         */
+        public function __construct(mixed $objParent, ?string $strControlId = null)
+        {
+            parent::__construct($objParent, $strControlId);
+            $this->setDataBinder('bindData', $this);
+            $this->watch(QQN::FrontendOptions());
+        }
 
-	public function __construct($objParent, $strControlId = null)
-	{
-		parent::__construct($objParent, $strControlId);
-		$this->setDataBinder('bindData', $this);
-		$this->watch(QQN::FrontendOptions());
-	}
+        /**
+         * Creates and initializes the columns for the data grid by defining
+         * their names, associated data, and properties.
+         *
+         * @return void
+         * @throws Caller
+         * @throws InvalidCast
+         */
+        public function createColumns(): void
+        {
+            $this->colId = $this->createNodeColumn(t("Id"), QQN::FrontendOptions()->Id);
 
-	public function createColumns()
-	{
-		$this->colId = $this->createNodeColumn("Id", QQN::FrontendOptions()->Id);
-		$this->colFrontendTemplateName = $this->createNodeColumn("Frontend template name", QQN::FrontendOptions()->FrontendTemplateName);
-        $this->colClassNames = $this->createNodeColumn("Class name", QQN::FrontendOptions()->ClassName);
-        $this->colFrontendTemplatePath = $this->createNodeColumn("Frontend template path", QQN::FrontendOptions()->FrontendTemplatePath);
-        $this->colStatus = $this->createNodeColumn("Status", QQN::FrontendOptions()->StatusObject);
-		$this->colStatus->HtmlEntities = false;
-	}
+            $this->colFrontendTemplateName = $this->createNodeColumn(t("Frontend template name"), QQN::FrontendOptions()->FrontendTemplateName);
 
-    public function bindData(?QQCondition $objAdditionalCondition = null, $objAdditionalClauses = null)
-	{
-		$objCondition = $this->getCondition($objAdditionalCondition);
-		$objClauses = $this->getClauses($objAdditionalClauses);
+            $this->colClassNames = $this->createNodeColumn(t("Class name"), QQN::FrontendOptions()->ClassName);
 
-		if ($this->Paginator) {
-			$this->TotalItemCount = FrontendOptions::queryCount($objCondition, $objClauses);
-		}
+            $this->colFrontendTemplatePath = $this->createNodeColumn(t("Frontend template path"), QQN::FrontendOptions()->FrontendTemplatePath);
 
-		if ($objClause = $this->OrderByClause) {
-			$objClauses[] = $objClause;
-		}
+            $this->colStatus = $this->createNodeColumn(t("Status"), QQN::FrontendOptions()->StatusObject);
+            $this->colStatus->HtmlEntities = false;
+        }
 
-		if ($objClause = $this->LimitClause) {
-			$objClauses[] = $objClause;
-		}
+        /**
+         * Binds data to the data source by applying specified conditions and clauses.
+         *
+         * This method constructs query conditions and clauses to retrieve a data set
+         * from the `NewsSettings` class. It supports pagination, ordering, and limiting
+         * the results as required.
+         *
+         * @param QQCondition|null $objAdditionalCondition An optional additional condition
+         *        to be merged with the primary condition for data retrieval.
+         * @param null|mixed $objAdditionalClauses Additional clauses such as sorting or grouping
+         *        to be applied to the query.
+         *
+         * @return void
+         * @throws Caller
+         */
+        public function bindData(?QQCondition $objAdditionalCondition = null, mixed $objAdditionalClauses = null): void
+        {
+            $objCondition = $this->getCondition($objAdditionalCondition);
+            $objClauses = $this->getClauses($objAdditionalClauses);
 
-		$this->DataSource = FrontendOptions::queryArray($objCondition, $objClauses);
-	}
+            if ($this->Paginator) {
+                $this->TotalItemCount = FrontendOptions::queryCount($objCondition, $objClauses);
+            }
 
-	protected function getCondition(?QQCondition $objAdditionalCondition = null)
-	{
-		$objCondition = $objAdditionalCondition;
+            if ($objClause = $this->OrderByClause) {
+                $objClauses[] = $objClause;
+            }
 
-		if (!$objCondition) {
-			$objCondition = QQ::all();
-		}
+            if ($objClause = $this->LimitClause) {
+                $objClauses[] = $objClause;
+            }
 
-		if ($this->objCondition) {
-			$objCondition = QQ::andCondition($objCondition, $this->objCondition);
-		}
+            $this->DataSource = FrontendOptions::queryArray($objCondition, $objClauses);
+        }
 
-		return $objCondition;
-	}
+        /**
+         * Retrieves and aggregates a condition object for database queries.
+         *
+         * This method combines the provided condition with an existing predefined condition,
+         * returning a composite condition for query execution. If no condition is provided,
+         * a default condition encompassing all records is used.
+         *
+         * @param QQCondition|null $objAdditionalCondition An optional additional condition to include in the query.
+         *
+         * @return QQCondition|All|AndCondition|null The resulting composite condition for the query.
+         * @throws Caller
+         */
+        protected function getCondition(?QQCondition $objAdditionalCondition = null): QQCondition|All|AndCondition|null
+        {
+            $objCondition = $objAdditionalCondition;
 
-	protected function getClauses($objAdditionalClauses = null) 
-	{
-		$objClauses = $objAdditionalClauses;
+            if (!$objCondition) {
+                $objCondition = QQ::all();
+            }
 
-		if (!$objClauses) {
-			$objClauses = [];
-		}
+            if ($this->objCondition) {
+                $objCondition = QQ::andCondition($objCondition, $this->objCondition);
+            }
 
-		if ($this->objClauses) {
-			$objClauses = array_merge($objClauses, $this->objClauses);
-		}
+            return $objCondition;
+        }
 
-		return $objClauses;
-	}
+        /**
+         * Retrieves and merges a set of clauses for query configuration.
+         *
+         * This method combines any additional clauses provided with the existing
+         * clauses stored in the object, ensuring a unified set of clauses
+         * for query generation or manipulation.
+         *
+         * @param null|mixed $objAdditionalClauses Additional clauses to merge with the existing clauses. Can be null.
+         *
+         * @return array The resulting array of clauses after merging additional clauses and existing clauses.
+         */
+        protected function getClauses(mixed $objAdditionalClauses = null): array
+        {
+            $objClauses = $objAdditionalClauses;
 
-	public function __get($strName) 
-	{
-		switch ($strName) {
-			case 'Condition':
-				return $this->objCondition;
-			case 'Clauses':
-				return $this->objClauses;
-			default:
-				try {
-					return parent::__get($strName);
-				} catch (Caller $objExc) {
-					$objExc->incrementOffset();
-					throw $objExc;
-				}
-		}
-	}
+            if (!$objClauses) {
+                $objClauses = [];
+            }
 
-	public function __set($strName, $mixValue) 
-	{
-		switch ($strName) {
-			case 'Condition':
-				try {
-					$this->objCondition = Type::cast($mixValue, '\QCubed\Query\Condition\ConditionInterface');
-					$this->markAsModified();
-				} catch (Caller $objExc) {
-					$objExc->incrementOffset();
-					throw $objExc;
-				}
-				break;
-			case 'Clauses':
-				try {
-					$this->objClauses = Type::cast($mixValue, Type::ARRAY_TYPE);
-					$this->markAsModified();
-				} catch (Caller $objExc) {
-					$objExc->incrementOffset();
-					throw $objExc;
-				}
-				break;
-			default:
-				try {
-					parent::__set($strName, $mixValue);
-					break;
-				} catch (Caller $objExc) {
-					$objExc->incrementOffset();
-					throw $objExc;
-				}
-		}
-	}
+            if ($this->objClauses) {
+                $objClauses = array_merge($objClauses, $this->objClauses);
+            }
 
-}
+            return $objClauses;
+        }
+
+        /**
+         * Magic method to retrieve the value of a property.
+         *
+         * This method provides access to specific properties or delegates the
+         * retrieval to the parent class if the property is not directly handled.
+         * Properties include 'Condition' and 'Clauses', returning their respective
+         * objects if requested.
+         *
+         * @param string $strName The name of the property to retrieve.
+         *
+         * @return mixed The value of the requested property.
+         * @throws Caller If the property does not exist or cannot be retrieved.
+         */
+        public function __get(string $strName): mixed
+        {
+            switch ($strName) {
+                case 'Condition':
+                    return $this->objCondition;
+                case 'Clauses':
+                    return $this->objClauses;
+                default:
+                    try {
+                        return parent::__get($strName);
+                    } catch (Caller $objExc) {
+                        $objExc->incrementOffset();
+                        throw $objExc;
+                    }
+            }
+        }
+
+        /**
+         * Magic method to set the value of a property dynamically.
+         *
+         * This method is used to assign values to specific properties, such as
+         * `Condition` and `Clauses`, while ensuring the provided value meets
+         * the expected type constraints. Throws an exception if the property
+         * name is unrecognized or the value cannot be cast to the required type.
+         *
+         * @param string $strName The name of the property to set.
+         * @param mixed $mixValue The value to assign to the property.
+         *
+         * @return void
+         * @throws Caller|Throwable Thrown if the property name is invalid or an error occurs during value casting.
+         */
+        public function __set(string $strName, mixed $mixValue): void
+        {
+            switch ($strName) {
+                case 'Condition':
+                    try {
+                        $this->objCondition = Type::cast($mixValue, '\QCubed\Query\Condition\ConditionInterface');
+                        $this->markAsModified();
+                    } catch (Caller $objExc) {
+                        $objExc->incrementOffset();
+                        throw $objExc;
+                    }
+                    break;
+                case 'Clauses':
+                    try {
+                        $this->objClauses = Type::cast($mixValue, Type::ARRAY_TYPE);
+                        $this->markAsModified();
+                    } catch (Caller $objExc) {
+                        $objExc->incrementOffset();
+                        throw $objExc;
+                    }
+                    break;
+                default:
+                    try {
+                        parent::__set($strName, $mixValue);
+                        break;
+                    } catch (Caller $objExc) {
+                        $objExc->incrementOffset();
+                        throw $objExc;
+                    }
+            }
+        }
+    }

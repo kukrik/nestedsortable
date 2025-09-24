@@ -1,12 +1,9 @@
 <?php $strPageTitle = t('Calendar event edit'); ?>
-
 <?php require('header.inc.php'); ?>
 <?php $this->RenderBegin(); ?>
-
 <style>
-    .select2-container--web-vauu .select2-results__option[aria-disabled=true] {
-        display: none;
-    }
+    .select2-container--web-vauu .select2-results__option[aria-disabled=true] {display: none;}
+    .vauu-table tbody > tr:first-child td  {border-top: 1px solid #ddd;}
 </style>
 <div class="page-content">
     <div class="row">
@@ -26,13 +23,6 @@
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <?= _r($this->lblTargetGroup); ?>
-                                    <div class="col-md-8">
-                                        <?= _r($this->lstTargetGroup); ?>
-                                        <?= _r($this->btnGoToTargetGroup); ?>
-                                    </div>
-                                </div>
-                                <div class="form-group">
                                     <?= _r($this->lblTitle); ?>
                                     <div class="col-md-8">
                                         <?= _r($this->txtTitle); ?>
@@ -43,6 +33,13 @@
                                     <div class="col-md-8">
                                         <?= _r($this->lstChanges); ?>
                                         <?= _r($this->btnGoToChanges); ?>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <?= _r($this->lblTargetGroup); ?>
+                                    <div class="col-md-8">
+                                        <?= _r($this->lstTargetGroup); ?>
+                                        <?= _r($this->btnGoToTargetGroup); ?>
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -124,8 +121,37 @@
                                         <?= _r($this->txtTitleSlug); ?>
                                     </div>
                                 </div>
+                                <div class="form-group">
+                                    <?= _r($this->lblDocumentLink); ?>
+                                    <div class="col-md-9">
+                                        <?= _r($this->btnDocumentLink); ?>
+                                        <?= _r($this->txtDocumentLink); ?>
+                                        <?= _r($this->txtLinkTitle); ?>
+                                        <?= _r($this->btnDownloadSave); ?>
+                                        <?= _r($this->btnDownloadCancel); ?>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <?= _r($this->dtgSelectedList); ?>
+                                        <div class="col-md-offset-3 col-md-6">
+                                            <?= _r($this->txtSelectedTitle); ?>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <?= _r($this->lstSelectedStatus); ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-12" style="margin-top: 15px; text-align: right;">
+                                        <?= _r($this->btnSelectedSave); ?>
+                                        <?= _r($this->btnSelectedCheck); ?>
+                                        <?= _r($this->btnSelectedDelete); ?>
+                                        <?= _r($this->btnSelectedCancel); ?>
+                                    </div>
+                                </div>
                                 <script>
-                                    var bsCssPath = <?= json_encode(QCUBED_BOOTSTRAP_CSS, JSON_UNESCAPED_UNICODE); ?>;
+                                    const bsCssPath = <?= json_encode(QCUBED_BOOTSTRAP_CSS, JSON_UNESCAPED_UNICODE); ?>;
                                     ckConfig = {
                                         skin: 'moono',
                                         width: '100%',
@@ -214,12 +240,8 @@
         </div>
     </div>
 </div>
-
 <?php $this->RenderEnd(); ?>
-
 <?php require('footer.inc.php'); ?>
-
-<?php // require(QCUBED_CONFIG_DIR . '/footer.inc.php'); ?>
 
 
 

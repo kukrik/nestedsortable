@@ -1,7 +1,5 @@
 <style>
-    .select2-container--web-vauu .select2-results__option[aria-disabled=true] {
-        display: none;
-    }
+    .select2-container--web-vauu .select2-results__option[aria-disabled=true] {display: none;}
 </style>
 <div class="form-horizontal">
     <div class="form-body" style="padding: 15px 0;">
@@ -68,7 +66,7 @@
         <div class="form-group">
             <?= _r($this->lblDefaultSportsAreasTemplate); ?>
             <div class="col-md-5">
-                <?= _r($this->lstDefaulSportsAreasTemplate); ?>
+                <?= _r($this->lstDefaultSportsAreasTemplate); ?>
             </div>
         </div>
         <div class="form-group">

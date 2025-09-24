@@ -1,3 +1,10 @@
+<style>
+    .select2-container--web-vauu .select2-results__option[aria-disabled=true] {
+        color: #777777;
+        cursor: not-allowed;
+        background-color: #ffffff;
+    }
+</style>
 <div class="form-horizontal">
     <div class="form-top">
         <div class="form-group">
@@ -21,7 +28,7 @@
         <div class="form-actions fluid">
             <div class="col-md-offset-3 col-md-12">
                 <?= _r($this->btnSave); ?>
-                <?= _r($this->btnSaving); ?>
+                <?= _r($this->btnDelete); ?>
                 <?= _r($this->btnCancel); ?>
             </div>
         </div>

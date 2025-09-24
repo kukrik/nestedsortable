@@ -12,6 +12,6 @@ use QCubed\Event\EventBase;
 class SidebarSelect extends EventBase
 {
     /** Event Name */
-    const EVENT_NAME = 'sidebarselect';
-    const JS_RETURN_PARAM = 'ui';
+    const string EVENT_NAME = 'sidebarselect';
+    const string JS_RETURN_PARAM = 'ui';
 }

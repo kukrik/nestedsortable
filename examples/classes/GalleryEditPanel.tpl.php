@@ -18,14 +18,12 @@
                 <?= _r($this->lstContentTypes); ?>
             </div>
         </div>
-
         <div class="form-group">
             <?= _r($this->lblGallerySettings); ?>
             <div class="col-md-5">
                 <?= _r($this->btnGoToGallerySettings); ?>
             </div>
         </div>
-
         <div class="form-group">
             <?= _r($this->lblStatus); ?>
             <div class="col-md-9">

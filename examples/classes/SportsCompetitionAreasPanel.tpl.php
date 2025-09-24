@@ -2,9 +2,8 @@
     .form-actions-wrapper  {display: block; background-color: #f5f5f5; border-radius: 4px; margin: 0 -15px; padding: 15px; text-align: left;}
     .form-actions  {display: block; background-color: #f5f5f5; border-radius: 4px; margin: 0; padding: 15px;}
     .form-horizontal .radio-inline {/*padding-top: 18px;*/margin-top: 0;margin-bottom: 0;}
-    .add-wrapper {display: block; margin-top: 15px; padding: 0 0 15px; border-bottom: #ddd 1px solid;/* scroll-margin-top: 80px;*/}
     .setting-wrapper {margin-top: 0; padding: 30px 0 10px; scroll-margin: 0;}
-    .link-wrapper {margin-top: 15px;/*text-align: left;*/}
+    .competition-add-wrapper {margin-top: 15px;  padding: 0 0 15px; border-bottom: #ddd 1px solid;}
 </style>
 <div class="form-horizontal">
     <div class="row">
@@ -14,7 +13,7 @@
     </div>
     <div class="row">
         <div class="col-md-12">
-            <div class="add-wrapper">
+            <div class="competition-add-wrapper">
                 <?= _r($this->btnAddCompetitionArea); ?>
             </div>
         </div>
@@ -64,7 +63,8 @@
         <div class="row">
             <div class="col-md-1"><?= _r($this->lstItemsPerPageByAssignedUserObject); ?></div>
             <div class="col-md-3" style="margin-top: -7px;"><?= _r($this->txtFilter); ?></div>
-            <div class="col-md-8" style="text-align: right; margin-bottom: 15px;"><?= _r($this->dtgCompetitionAreas->Paginator); ?></div>
+            <div class="col-md-2" style="text-align: left;"><?= _r($this->btnClearFilters); ?></div>
+            <div class="col-md-6" style="text-align: right; margin-bottom: 15px;"><?= _r($this->dtgCompetitionAreas->Paginator); ?></div>
         </div>
         <?= _r($this->dtgCompetitionAreas); ?>
     </div>

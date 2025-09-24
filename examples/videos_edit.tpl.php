@@ -1,8 +1,6 @@
 <?php $strPageTitle = t('Videos edit'); ?>
-
 <?php require('header.inc.php'); ?>
 <?php $this->RenderBegin(); ?>
-
     <style>
         .form-actions-wrapper  {display: block; background-color: #f5f5f5; border-radius: 4px; margin: 0 -15px; padding: 15px; text-align: left;}
         .form-actions  {display: block; background-color: #f5f5f5; border-radius: 4px; margin: 15px -15px 0 -15px; padding: 15px;}
@@ -45,9 +43,7 @@
                 { name: 'document', items: [ 'Source' ] }
             ]
         }
-
     </script>
-
     <div class="page-content">
         <div class="row">
             <div class="col-md-12">
@@ -77,6 +73,7 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="js-video-wrapper"></div>
                                     <div class="video-setting-wrapper">
                                         <div class="row">
                                             <div class="col-md-12">
@@ -180,7 +177,5 @@
             </div>
         </div>
     </div>
-
 <?php $this->RenderEnd(); ?>
-
 <?php require('footer.inc.php'); ?>

@@ -1,27 +1,33 @@
 <?php
 
-namespace QCubed\Plugin\Control;
+    namespace QCubed\Plugin\Control;
 
-use QCubed\Control\BlockControl;
+    use QCubed\Control\BlockControl;
+    use QCubed\Control\Label as QLabel;
 
-/**
- * Class Label
- *
- * Converts\QCubed\Control\Label to a drawing boot strategy according to the client's desired theme.
- * @package QCubed\Plugin
- */
-class Label extends \QCubed\Control\Label
-{
-    protected $strCssClass = "control-label";
-    protected $strTagName = "label";
-    protected $blnRequired = false;
-
-    protected function getInnerHtml()
+    /**
+     * Class Label
+     *
+     * Converts\QCubed\Control\Label to a drawing boot strategy according to the client's a desired theme.
+     * @package QCubed\Plugin
+     */
+    class Label extends QLabel
     {
-        $strToReturn = BlockControl::getInnerHtml();
-        if ($this->blnRequired) {
-            $strToReturn = $strToReturn . sprintf('<span class="required" aria-required="true"> * </span>');
+        protected string $strCssClass = "control-label";
+        protected string $strTagName = "label";
+        protected bool $blnRequired = false;
+
+        /**
+         * Retrieves the inner HTML content with an optional required indicator.
+         *
+         * @return string The inner HTML content, including a required indicator if applicable.
+         */
+        protected function getInnerHtml(): string
+        {
+            $strToReturn = BlockControl::getInnerHtml();
+            if ($this->blnRequired) {
+                $strToReturn = $strToReturn . '<span class="required" aria-required="true"> * </span>';
+            }
+            return $strToReturn;
         }
-        return $strToReturn;
     }
-}

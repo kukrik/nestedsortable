@@ -1,366 +1,477 @@
 <?php
 
-use QCubed as Q;
-use QCubed\Bootstrap as Bs;
-use QCubed\Project\Control\ControlBase;
-use QCubed\Project\Control\FormBase;
-use QCubed\Project\Application;
-use QCubed\Action\ActionParams;
-use QCubed\Project\Control\Paginator;
-use QCubed\Query\Condition\ConditionInterface as QQCondition;
-use QCubed\Control\ListItem;
-use QCubed\Query\QQ;
-use QCubed\QString;
+    use QCubed as Q;
+    use QCubed\Control\Panel;
+    use QCubed\Bootstrap as Bs;
+    use QCubed\Exception\Caller;
+    use QCubed\Exception\InvalidCast;
+    use Random\RandomException;
+    use QCubed\Event\Click;
+    use QCubed\Event\Change;
+    use QCubed\Event\CellClick;
+    use QCubed\Event\EnterKey;
+    use QCubed\Event\Input;
+    use QCubed\Action\AjaxControl;
+    use QCubed\Action\Terminate;
+    use QCubed\Action\ActionParams;
+    use QCubed\Project\Application;
+    use QCubed\Query\Condition\All;
+    use QCubed\Control\ListItem;
+    use QCubed\Query\Condition\OrCondition;
+    use QCubed\Query\QQ;
 
-class BoardListPanel extends Q\Control\Panel
-{
-    protected $lstItemsPerPageByAssignedUserObject;
-    protected $objItemsPerPageByAssignedUserObjectCondition;
-    protected $objItemsPerPageByAssignedUserObjectClauses;
-
-    public $dlgModal1;
-
-    public $txtFilter;
-    public $dtgBoards;
-    public $btnBack;
-
-    protected $objUser;
-    protected $intLoggedUserId;
-    protected $objGroupTitleCondition;
-    protected $objGroupTitleClauses;
-
-    protected $strTemplate = 'BoardListPanel.tpl.php';
-
-    public function __construct($objParentObject, $strControlId = null)
+    /**
+     * Class BoardListPanel
+     *
+     * A panel that represents a list of boards. It includes various controls and features such as
+     * filtering, pagination, AJAX-enabled interactions, and edit capabilities for managing board data.
+     */
+    class BoardListPanel extends Panel
     {
-        try {
-            parent::__construct($objParentObject, $strControlId);
-        } catch (\QCubed\Exception\Caller $objExc) {
-            $objExc->IncrementOffset();
-            throw $objExc;
+        protected Q\Plugin\Select2 $lstItemsPerPageByAssignedUserObject;
+        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
+        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+
+        public Bs\Modal $dlgModal1;
+
+        public Bs\TextBox $txtFilter;
+        public Bs\Button $btnClearFilters;
+        public BoardTable $dtgBoards;
+        public Bs\Button $btnBack;
+        public Bs\Button $btnRefresh;
+
+        protected object $objUser;
+        protected int $intLoggedUserId;
+        protected ?object $objGroupTitleCondition = null;
+        protected ?array $objGroupTitleClauses = null;
+
+        protected string $strTemplate = 'BoardListPanel.tpl.php';
+
+        /**
+         * Constructor method for initializing the object with a parent object and an optional control ID.
+         * Performs a necessary setup such as retrieving the logged-in user information, loading the user object,
+         * and initializing various UI components like buttons, modals, filters, and data grids.
+         *
+         * @param mixed $objParentObject The parent object to which this object belongs.
+         * @param string|null $strControlId An optional control ID for identifying this object.
+         *
+         * @throws Caller
+         * @throws InvalidCast
+         * @throws DateMalformedStringException
+         */
+        public function __construct(mixed $objParentObject, ?string $strControlId = null)
+        {
+            try {
+                parent::__construct($objParentObject, $strControlId);
+            } catch (Caller $objExc) {
+                $objExc->IncrementOffset();
+                throw $objExc;
+            }
+
+            /**
+             * NOTE: if the user_id is stored in session (e.g., if a User is logged in), as well, for example,
+             * checking against user session etc.
+             *
+             * Must have to get something like here $this->objUser->getUserId(logged user session);
+             * or something similar...
+             *
+             * Options to do this are left to the developer.
+             **/
+
+            // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
+            // For example, John Doe is a logged user with his session
+
+            $this->intLoggedUserId = 3;
+            $this->objUser = User::load($this->intLoggedUserId);
+
+            $this->createButtons();
+            $this->createModals();
+            $this->createItemsPerPage();
+            $this->createFilter();
+            $this->dtgBoards_Create();
+            $this->dtgBoards->setDataBinder('BindData', $this);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Create and configure the 'Back' button with associated actions and styles
+         *
+         * @return void
+         * @throws Caller
+         */
+        public function createButtons(): void
+        {
+            $this->btnBack = new Bs\Button($this);
+            $this->btnBack->Text = t('Back');
+            $this->btnBack->CssClass = 'btn btn-default';
+            $this->btnBack->addWrapperCssClass('center-button');
+            $this->btnBack->CausesValidation = false;
+            $this->btnBack->addAction(new Click(), new AjaxControl($this,'btnBack_Click'));
+
+            $this->btnRefresh = new Bs\Button($this);
+            $this->btnRefresh->Tip = true;
+            $this->btnRefresh->ToolTip = t('Refresh');
+            $this->btnRefresh->Glyph = 'fa fa-refresh';
+            $this->btnRefresh->CssClass = 'btn btn-darkblue';
+            $this->btnRefresh->CausesValidation = false;
+            $this->btnRefresh->addAction(new Click(), new AjaxControl($this,'btnRefresh_Click'));
         }
 
         /**
-         * NOTE: if the user_id is stored in session (e.g. if a User is logged in), as well, for example:
-         * checking against user session etc.
+         * Creates modals to display messages or alerts within the application.
+         * This method configures a modal dialog for CSRF protection warnings by initializing
+         * the modal, setting its content, title, and styles, and adding a close button with a label.
          *
-         * Must have to get something like here $this->objUser->getUserId(logged user session);
-         * or something similar...
+         * @return void
+         */
+        public function createModals(): void
+        {
+            ///////////////////////////////////////////////////////////////////////////////////////////
+            // CSRF PROTECTION
+
+            $this->dlgModal1 = new Bs\Modal($this);
+            $this->dlgModal1->Text = t('<p style="margin-top: 15px;">CSRF Token is invalid! The request was aborted.</p>');
+            $this->dlgModal1->Title = t("Warning");
+            $this->dlgModal1->HeaderClasses = 'btn-danger';
+            $this->dlgModal1->addCloseButton(t("I understand"));
+        }
+
+        /**
+         * Handles the 'Back' button click event by redirecting to the menu manager page.
          *
-         * Options to do this are left to the developer.
-         **/
+         * @param ActionParams $params The parameters for the action event, typically including context-specific
+         *     information about the event.
+         *
+         * @return void
+         * @throws RandomException
+         * @throws Throwable
+         */
+        public function btnBack_Click(ActionParams $params): void
+        {
+            if (!Application::verifyCsrfToken()) {
+                $this->dlgModal1->showDialogBox();
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                return;
+            }
 
-        // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
-        // For example, John Doe is a logged user with his session
+            Application::redirect('menu_manager.php');
+        }
 
-        $this->intLoggedUserId = 3;
-        $this->objUser = User::load($this->intLoggedUserId);
+        /**
+         * Handles the button click event for refreshing the data grid.
+         * This method refreshes the data displayed in the board data grid based on
+         * the current parameters or state.
+         *
+         * @param ActionParams $params Contains the parameters or context associated with the button click event.
+         *
+         * @return void
+         */
+        public function btnRefresh_Click(ActionParams $params): void
+        {
+            $this->dtgBoards->refresh();
+        }
 
-        $this->createButtons();
-        $this->createModals();
-        $this->createItemsPerPage();
-        $this->createFilter();
-        $this->dtgBoards_Create();
-        $this->dtgBoards->setDataBinder('BindData', $this);
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////
-
-    /**
-     * Create and configure the 'Back' button with associated actions and styles
-     *
-     * @return void
-     */
-    public function createButtons()
-    {
-        $this->btnBack = new Bs\Button($this);
-        $this->btnBack->Text = t('Back');
-        $this->btnBack->CssClass = 'btn btn-default';
-        $this->btnBack->addWrapperCssClass('center-button');
-        $this->btnBack->CausesValidation = false;
-        $this->btnBack->addAction(new Q\Event\Click(), new Q\Action\AjaxControl($this,'btnBack_Click'));
-    }
-
-    public function createModals()
-    {
         ///////////////////////////////////////////////////////////////////////////////////////////
-        // CSRF PROTECTION
 
-        $this->dlgModal1 = new Bs\Modal($this);
-        $this->dlgModal1->Text = t('<p style="margin-top: 15px;">CSRF Token is invalid! The request was aborted.</p>');
-        $this->dlgModal1->Title = t("Warning");
-        $this->dlgModal1->HeaderClasses = 'btn-danger';
-        $this->dlgModal1->addCloseButton(t("I understand"));
-
-    }
-
-    /**
-     * Handles the 'Back' button click event by redirecting to the menu manager page.
-     *
-     * @param ActionParams $params The parameters for the action event, typically including context-specific information about the event.
-     * @return void
-     */
-    public function btnBack_Click(ActionParams $params)
-    {
-        if (!Application::verifyCsrfToken()) {
-            $this->dlgModal1->showDialogBox();
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-            return;
+        /**
+         * Create and configure the boards datagrid
+         *
+         * @return void
+         * @throws Caller
+         */
+        protected function dtgBoards_Create(): void
+        {
+            $this->dtgBoards = new BoardTable($this);
+            $this->dtgBoards_CreateColumns();
+            $this->createPaginators();
+            $this->dtgBoards_MakeEditable();
+            $this->dtgBoards->RowParamsCallback = [$this, "dtgBoards_GetRowParams"];
+            $this->dtgBoards->SortColumnIndex = 5;
+            //$this->dtgBoards->SortDirection = -1;
+            $this->dtgBoards->UseAjax = true;
+            $this->dtgBoards->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum(); //__toString();
         }
 
-        Application::redirect('menu_manager.php');
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////
-
-    /**
-     * Create and configure the boards datagrid
-     *
-     * @return void
-     */
-    protected function dtgBoards_Create()
-    {
-        $this->dtgBoards = new BoardTable($this);
-        $this->dtgBoards_CreateColumns();
-        $this->createPaginators();
-        $this->dtgBoards_MakeEditable();
-        $this->dtgBoards->RowParamsCallback = [$this, "dtgBoards_GetRowParams"];
-        $this->dtgBoards->SortColumnIndex = 5;
-        //$this->dtgBoards->SortDirection = -1;
-        $this->dtgBoards->UseAjax = true;
-        $this->dtgBoards->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum(); //__toString();
-    }
-
-    /**
-     * Create columns for the datagrid
-     *
-     * @return void
-     */
-    protected function dtgBoards_CreateColumns()
-    {
-        $this->dtgBoards->createColumns();
-    }
-
-    /**
-     * Configures the dtgBoards datatable to be interactive and editable by adding
-     * appropriate actions and CSS classes. This method enables cell click actions
-     * that trigger an AJAX control event and applies specified CSS classes to the table.
-     *
-     * @return void
-     */
-    protected function dtgBoards_MakeEditable()
-    {
-        $this->dtgBoards->addAction(new Q\Event\CellClick(0, null, Q\Event\CellClick::rowDataValue('value')), new Q\Action\AjaxControl($this, 'dtgBoardsRow_Click'));
-        $this->dtgBoards->addCssClass('clickable-rows');
-        $this->dtgBoards->CssClass = 'table vauu-table table-hover table-responsive';
-    }
-
-    /**
-     * Handles click events on rows of the dtgBoards datatable. Retrieves the board
-     * settings based on the action parameter's identifier, then redirects the user
-     * to the board edit page with the board's ID and group information as query parameters.
-     *
-     * @param ActionParams $params The parameters associated with the action, containing
-     *                             the identifier of the clicked row's board.
-     *
-     * @return void
-     */
-    protected function dtgBoardsRow_Click(ActionParams $params)
-    {
-        if (!Application::verifyCsrfToken()) {
-            $this->dlgModal1->showDialogBox();
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-            return;
+        /**
+         * Create columns for the datagrid
+         *
+         * @return void
+         * @throws Caller
+         * @throws InvalidCast
+         */
+        protected function dtgBoards_CreateColumns(): void
+        {
+            $this->dtgBoards->createColumns();
         }
 
-        $intId = intval($params->ActionParameter);
-        $objBoard = BoardsSettings::loadById($intId);
-        $intGroup = $objBoard->getMenuContentId();
-
-        Application::redirect('board_edit.php' . '?id=' . $intId . '&group=' . $intGroup);
-    }
-
-    /**
-     * Get row parameters for the row tag
-     *
-     * @param mixed $objRowObject   A database object
-     * @param int $intRowIndex      The row index
-     * @return array
-     */
-    public function dtgBoards_GetRowParams($objRowObject, $intRowIndex)
-    {
-        $strKey = $objRowObject->primaryKey();
-        $params['data-value'] = $strKey;
-        return $params;
-    }
-
-    /**
-     * Sets up pagination for the dtgBoards datatable by initializing primary and
-     * alternate paginators with labels for navigation controls and specifying
-     * the number of items displayed per page. Additionally, invokes actions
-     * to handle filtering of data within the table.
-     *
-     * @return void
-     */
-    protected function createPaginators()
-    {
-        $this->dtgBoards->Paginator = new Bs\Paginator($this);
-        $this->dtgBoards->Paginator->LabelForPrevious = t('Previous');
-        $this->dtgBoards->Paginator->LabelForNext = t('Next');
-
-        $this->dtgBoards->PaginatorAlternate = new Bs\Paginator($this);
-        $this->dtgBoards->PaginatorAlternate->LabelForPrevious = t('Previous');
-        $this->dtgBoards->PaginatorAlternate->LabelForNext = t('Next');
-
-        $this->dtgBoards->ItemsPerPage = 10;
-
-        $this->addFilterActions();
-    }
-
-    /**
-     * Initializes and configures a Select2 control for selecting the number of items
-     * per page by an assigned user. This method sets various properties such as the theme,
-     * width, and selection mode. It also populates the control with item options and
-     * attaches an AJAX change event to handle user interactions.
-     *
-     * @return void
-     */
-    protected function createItemsPerPage()
-    {
-        $this->lstItemsPerPageByAssignedUserObject = new Q\Plugin\Select2($this);
-        $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
-        $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
-        $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-        $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-        $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-        $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
-        $this->lstItemsPerPageByAssignedUserObject->AddAction(new Q\Event\Change(), new Q\Action\AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
-    }
-
-    /**
-     * Retrieves a list of ListItems representing items per page associated with an assigned user object.
-     * This method queries the database for items per page objects based on a specified condition and
-     * returns them as ListItem objects. The ListItem will be marked as selected if it matches the
-     * currently assigned user object's item.
-     *
-     * @return ListItem[] An array of ListItems containing items per page associated with an assigned user object.
-     */
-    public function lstItemsPerPageByAssignedUserObject_GetItems() {
-        $a = array();
-        $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
-        if (is_null($objCondition)) $objCondition = QQ::all();
-        $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
-
-        // Iterate through the Cursor
-        while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-            $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-            if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
-                $objListItem->Selected = true;
-            $a[] = $objListItem;
-        }
-        return $a;
-    }
-
-    /**
-     * Updates the number of items displayed per page for a data grid based on the selection
-     * from a list associated with an assigned user object. This method adjusts the items per
-     * page of the data grid and refreshes it to reflect the updated pagination settings.
-     *
-     * @param ActionParams $params The action parameters containing details of the change event.
-     * @return void
-     */
-    public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params)
-    {
-        $this->dtgBoards->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
-        $this->dtgBoards->refresh();
-    }
-
-    /**
-     * Creates a filter control for user input. Initializes a text box with specific
-     * properties and styling to serve as a search input field. This text box is designed
-     * to provide a seamless user experience for entering search queries.
-     *
-     * @return void This method does not return any value.
-     */
-    protected function createFilter() {
-        $this->txtFilter = new Bs\TextBox($this);
-        $this->txtFilter->Placeholder = t('Search...');
-        $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
-        $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
-        $this->txtFilter->addCssClass('search-box');
-        $this->addFilterActions();
-    }
-
-    /**
-     * Adds filter actions to the txtFilter control. This method sets up event-driven
-     * interactions for the filter functionality. It registers an input event that triggers
-     * an AJAX action after a delay, as well as an enter key event that initiates both an
-     * AJAX action and an action termination.
-     *
-     * @return void
-     */
-    protected function addFilterActions()
-    {
-        $this->txtFilter->addAction(new Q\Event\Input(300), new Q\Action\AjaxControl($this, 'filterChanged'));
-        $this->txtFilter->addActionArray(new Q\Event\EnterKey(),
-            [
-                new Q\Action\AjaxControl($this, 'FilterChanged'),
-                new Q\Action\Terminate()
-            ]
-        );
-    }
-
-    /**
-     * Handles the event when a filter is changed, triggering the refresh of the board data grid.
-     * This method updates the displayed data in the data grid to reflect the current filter criteria.
-     *
-     * @return void
-     */
-    protected function filterChanged()
-    {
-        $this->dtgBoards->refresh();
-    }
-
-    /**
-     * Binds data to the data table by applying a specific condition.
-     * This method retrieves a condition, typically used for filtering or querying purposes,
-     * and applies it to bind data to a data table component.
-     *
-     * @return void
-     */
-    public function bindData()
-    {
-        $objCondition = $this->getCondition();
-        $this->dtgBoards->bindData($objCondition);
-    }
-
-    /**
-     * Constructs a query condition based on the current text input in the filter field.
-     * This method evaluates the search value and returns a condition that matches records
-     * in the BoardsSettings database table where the name, title, or author fields contain
-     * the specified search value. If the search value is empty, it returns a condition that matches all records.
-     *
-     * @return Q\Query\QQ A query condition that can be used to filter BoardsSettings records
-     * based on the text input from the filter, or all records if no input is provided.
-     */
-    protected function getCondition()
-    {
-        $strSearchValue = $this->txtFilter->Text;
-
-        if ($strSearchValue === null) {
-            $strSearchValue = '';
+        /**
+         * Configures the dtgBoards datatable to be interactive and editable by adding
+         * appropriate actions and CSS classes. This method enables cell click actions
+         * that trigger an AJAX control event and applies specified CSS classes to the table.
+         *
+         * @return void
+         * @throws Caller
+         */
+        protected function dtgBoards_MakeEditable(): void
+        {
+            $this->dtgBoards->addAction(new CellClick(0, null, CellClick::rowDataValue('value')), new AjaxControl($this, 'dtgBoardsRow_Click'));
+            $this->dtgBoards->addCssClass('clickable-rows');
+            $this->dtgBoards->CssClass = 'table vauu-table table-hover table-responsive';
         }
 
-        $strSearchValue = trim($strSearchValue);
+        /**
+         * Handles click events on rows of the dtgBoards datatable. Retrieves the board
+         * settings based on the action parameter's identifier, then redirects the user
+         * to the board edit page with the board's ID and group information as query parameters.
+         *
+         * @param ActionParams $params The parameters associated with the action, containing
+         *                             the identifier of the clicked row's board.
+         *
+         * @return void
+         * @throws Caller
+         * @throws InvalidCast
+         * @throws RandomException
+         * @throws Throwable
+         */
+        protected function dtgBoardsRow_Click(ActionParams $params): void
+        {
+            if (!Application::verifyCsrfToken()) {
+                $this->dlgModal1->showDialogBox();
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                return;
+            }
 
-        if (is_null($strSearchValue) || $strSearchValue === '') {
-            return Q\Query\QQ::all();
-        } else {
-            return Q\Query\QQ::orCondition(
-                Q\Query\QQ::like(QQN::BoardsSettings()->Name, "%" . $strSearchValue . "%"),
-                Q\Query\QQ::like(QQN::BoardsSettings()->Title, "%" . $strSearchValue . "%"),
-                Q\Query\QQ::like(QQN::BoardsSettings()->Author, "%" . $strSearchValue . "%")
+            $intId = intval($params->ActionParameter);
+            $objBoard = BoardsSettings::loadById($intId);
+            $intGroup = $objBoard->getMenuContentId();
+
+            Application::redirect('board_edit.php' . '?id=' . $intId . '&group=' . $intGroup);
+        }
+
+        /**
+         * Get row parameters for the row tag
+         *
+         * @param mixed $objRowObject   A database object
+         * @param int $intRowIndex      The row index
+         *
+         * @return array
+         */
+        public function dtgBoards_GetRowParams(mixed $objRowObject, int $intRowIndex): array
+        {
+            $strKey = $objRowObject->primaryKey();
+            $params['data-value'] = $strKey;
+            return $params;
+        }
+
+        /**
+         * Sets up pagination for the dtgBoards datatable by initializing primary and
+         * alternate paginators with labels for navigation controls and specifying
+         * the number of items displayed per page. Additionally, invokes actions
+         * to handle filtering of data within the table.
+         *
+         * @return void
+         * @throws Caller
+         */
+        protected function createPaginators(): void
+        {
+            $this->dtgBoards->Paginator = new Bs\Paginator($this);
+            $this->dtgBoards->Paginator->LabelForPrevious = t('Previous');
+            $this->dtgBoards->Paginator->LabelForNext = t('Next');
+
+            $this->dtgBoards->PaginatorAlternate = new Bs\Paginator($this);
+            $this->dtgBoards->PaginatorAlternate->LabelForPrevious = t('Previous');
+            $this->dtgBoards->PaginatorAlternate->LabelForNext = t('Next');
+
+            $this->dtgBoards->ItemsPerPage = 10;
+
+            $this->addFilterActions();
+        }
+
+        /**
+         * Initializes and configures a Select2 control for selecting the number of items
+         * per a page by an assigned user. This method sets various properties such as the theme,
+         * width, and selection mode. It also populates the control with item options and
+         * attaches an AJAX change event to handle user interactions.
+         *
+         * @return void
+         * @throws Caller
+         * @throws InvalidCast
+         * @throws DateMalformedStringException
+         */
+        protected function createItemsPerPage(): void
+        {
+            $this->lstItemsPerPageByAssignedUserObject = new Q\Plugin\Select2($this);
+            $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
+            $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
+            $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
+        }
+
+        /**
+         * Retrieves a list of ListItems representing items per a page associated with an assigned user object.
+         * This method queries the database for items per page objects based on a specified condition and
+         * returns them as ListItem objects. The ListItem will be marked as selected if it matches the
+         * currently assigned user object's item.
+         *
+         * @return ListItem[] An array of ListItems containing items per a page associated with an assigned user object.
+         * @throws DateMalformedStringException
+         * @throws Caller
+         * @throws InvalidCast
+         */
+        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        {
+            $a = array();
+            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            if (is_null($objCondition)) $objCondition = QQ::all();
+            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+
+            // Iterate through the Cursor
+            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
+                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
+                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+                    $objListItem->Selected = true;
+                $a[] = $objListItem;
+            }
+            return $a;
+        }
+
+        /**
+         * Updates the number of items displayed per page for a data grid based on the selection
+         * from a list associated with an assigned user object. This method adjusts the items per
+         * page of the data grid and refreshes it to reflect the updated pagination settings.
+         *
+         * @param ActionParams $params The action parameters containing details of the change event.
+         * @return void
+         */
+        public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
+        {
+            $this->dtgBoards->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgBoards->refresh();
+        }
+
+        /**
+         * Creates a filter control for user input. Initializes a text box with specific
+         * properties and styling to serve as a search input field. This text box is designed
+         * to provide a seamless user experience for entering search queries.
+         *
+         * @return void This method does not return any value.
+         * @throws Caller
+         */
+        protected function createFilter(): void
+        {
+            $this->txtFilter = new Bs\TextBox($this);
+            $this->txtFilter->Placeholder = t('Search...');
+            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
+            $this->txtFilter->addCssClass('search-box');
+
+            $this->btnClearFilters = new Bs\Button($this);
+            $this->btnClearFilters->Text = t('Clear filter');
+            $this->btnClearFilters->addWrapperCssClass('center-button');
+            $this->btnClearFilters->CssClass = 'btn btn-default';
+            $this->btnClearFilters->setCssStyle('float', 'left');
+            $this->btnClearFilters->CausesValidation = false;
+            $this->btnClearFilters->addAction(new Click(), new AjaxControl($this, 'clearFilters_Click'));
+
+            $this->addFilterActions();
+        }
+
+        /**
+         * Clears all filters from the interface and refreshes the relevant components.
+         * This method resets the filter text field and refreshes both the filter input and the datagrid
+         * to display all data without any filtering applied.
+         *
+         * @param ActionParams $params The parameters passed to the click action, typically containing event details.
+         *
+         * @return void
+         */
+        protected function clearFilters_Click(ActionParams $params): void
+        {
+            $this->txtFilter->Text = '';
+            $this->txtFilter->refresh();
+
+            $this->dtgBoards->refresh();
+        }
+
+        /**
+         * Adds filter actions to the txtFilter control. This method sets up event-driven
+         * interactions for the filter functionality. It registers an input event that triggers
+         * an AJAX action after a delay, as well as an enter key event that initiates both an
+         * AJAX action and an action termination.
+         *
+         * @return void
+         * @throws Caller
+         */
+        protected function addFilterActions(): void
+        {
+            $this->txtFilter->addAction(new Input(300), new AjaxControl($this, 'filterChanged'));
+            $this->txtFilter->addActionArray(new EnterKey(),
+                [
+                    new AjaxControl($this, 'FilterChanged'),
+                    new Terminate()
+                ]
             );
         }
+
+        /**
+         * Handles the event when a filter is changed, triggering the refresh of the board data grid.
+         * This method updates the displayed data in the data grid to reflect the current filter criteria.
+         *
+         * @return void
+         */
+        protected function filterChanged(): void
+        {
+            $this->dtgBoards->refresh();
+        }
+
+        /**
+         * Binds data to the data table by applying a specific condition.
+         * This method retrieves a condition, typically used for filtering or querying purposes,
+         * and applies it to bind data to a data table component.
+         *
+         * @return void
+         * @throws Caller
+         * @throws InvalidCast
+         */
+        public function bindData(): void
+        {
+            $objCondition = $this->getCondition();
+            $this->dtgBoards->bindData($objCondition);
+        }
+
+        /**
+         * Generates a query condition based on the current text filter input.
+         *
+         * If the filter input is empty or null, a condition that matches all entries is returned.
+         * Otherwise, returns a compound condition that performs a case-insensitive search for the filter input
+         * within the Picture, GroupTitle, Title, Category, and Author fields of the News entity.
+         *
+         * @return All|OrCondition The generated query condition, either matching all entries or matching specified
+         *     fields against the filter input.
+         * @throws Caller
+         */
+        protected function getCondition(): All|OrCondition
+        {
+            $strSearchValue = $this->txtFilter->Text;
+
+            if ($strSearchValue === null) {
+                $strSearchValue = '';
+            }
+
+            $strSearchValue = trim($strSearchValue);
+
+            if ($strSearchValue === '') {
+                return QQ::all();
+            } else {
+                return QQ::orCondition(
+                    QQ::like(QQN::BoardsSettings()->Name, "%" . $strSearchValue . "%"),
+                    QQ::like(QQN::BoardsSettings()->Title, "%" . $strSearchValue . "%"),
+                    QQ::like(QQN::BoardsSettings()->Author, "%" . $strSearchValue . "%")
+                );
+            }
+        }
     }
-}

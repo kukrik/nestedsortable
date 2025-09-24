@@ -1,35 +1,39 @@
 <?php
-require('qcubed.inc.php');
+    require('qcubed.inc.php');
+    require ('classes/SportsViewPanel.class.php');
+    require('tables/SportsViewTable.php');
 
-require ('classes/SportsViewPanel.class.php');
-require('tables/SportsViewTable.php');
+    error_reporting(E_ALL); // Error engine - always ON!
+    ini_set('display_errors', TRUE); // Error display - OFF in production env or real server
+    ini_set('log_errors', TRUE); // Error logging
 
-error_reporting(E_ALL); // Error engine - always ON!
-ini_set('display_errors', TRUE); // Error display - OFF in production env or real server
-ini_set('log_errors', TRUE); // Error logging
+    use QCubed as Q;
+    use QCubed\Project\Control\FormBase as Form;
+    use QCubed\Exception\Caller;
 
-use QCubed as Q;
-use QCubed\Bootstrap as Bs;
-use QCubed\Project\Control\ControlBase;
-use QCubed\Project\Control\FormBase as Form;
-use QCubed\Project\Application;
-
-/**
- * Class SampleForm
- */
-class SampleForm extends Form
-{
-    protected $nav;
-
-    protected function formCreate()
+    /**
+     * Class SportsViewForm
+     */
+    class SportsViewForm extends Form
     {
-        parent::formCreate();
+        protected Q\Plugin\Control\Tabs $nav;
 
-        $this->nav = new Q\Plugin\Control\Tabs($this);
-        $this->nav->addCssClass('tabbable tabbable-custom');
+        /**
+         * Initializes the form creation process. Sets up the navigation tabs and adds the default page to the navigation
+         * control.
+         *
+         * @return void
+         * @throws Caller
+         */
+        protected function formCreate(): void
+        {
+            parent::formCreate();
 
-        $page = new SportsViewPanel($this->nav);
-        $page->Name = t('Linked documents overview');
+            $this->nav = new Q\Plugin\Control\Tabs($this);
+            $this->nav->addCssClass('tabbable tabbable-custom');
+
+            $page = new SportsViewPanel($this->nav);
+            $page->Name = t('Linked documents overview');
+        }
     }
-}
-SampleForm::run('SampleForm');
+    SportsViewForm::run('SportsViewForm');

@@ -11,6 +11,6 @@
       "psr-4": {"QCubed\\Plugin\\": "src/"}
     },
     "extra": {
-        "examples": ["menu_examples_en.php", "menu_examples_et.php", "menu_manager.php", "settings_manager.php", "categories_manager.php", "content_types_manager.php", "sliders_admin.php"]
+        "examples": ["menu_examples_en.php", "menu_examples_et.php", "menu_manager.php", "settings_manager.php", "categories_manager.php", "content_types_manager.php", "albums_list.php"]
     }
 }

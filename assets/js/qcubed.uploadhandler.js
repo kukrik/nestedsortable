@@ -139,6 +139,7 @@
         const body = document.querySelector("body");
         const upload_wrapper = document.querySelector(".upload-wrapper");
         const scroll_wrapper = document.querySelector(".scroll-wrapper");
+        const dialog_wrapper = document.querySelector(".dialog-wrapper");
 
         /////////////////////////////////////////
 
@@ -977,7 +978,6 @@
             all_cancel.removeAttribute('disabled');
             back.classList.remove("disabled");
             back.removeAttribute("disabled");
-            scroll_wrapper.classList.remove("hidden");
 
             while (storedFiles.length > 0) {
                 storedFiles.pop();

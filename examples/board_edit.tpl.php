@@ -2,7 +2,6 @@
 
 <?php require('header.inc.php'); ?>
 <?php $this->RenderBegin(); ?>
-
     <style>
         .form-actions-wrapper  {display: block; background-color: #f5f5f5; border-radius: 4px; margin: 0 -15px; padding: 15px; text-align: left;}
         .form-actions  {display: block; background-color: #f5f5f5; border-radius: 4px; margin: 15px -15px 0 -15px; padding: 15px;}
@@ -30,7 +29,6 @@
         .icon-set, .btn-icon {display: inline-block;font-size: 16px;color: #7d898d;background-color: transparent;width: 38px;padding: 7px;text-align: center;vertical-align: middle;cursor: pointer;}
         .js-validate-popup {position: relative;}
     </style>
-
     <div class="page-content">
         <div class="row">
             <div class="col-md-12">
@@ -61,11 +59,9 @@
                                         </div>
                                     </div>
                                     <div class="js-board-wrapper"></div>
-                                    <div class="row">
-                                        <div class="board-image-wrapper hidden">
-                                            <div class="col-md-3 col-md-offset-4">
-                                                <?= _r($this->objMediaFinder); ?>
-                                            </div>
+                                    <div class="row board-image-wrapper hidden">
+                                        <div class="col-md-3 col-md-offset-4">
+                                            <?= _r($this->objMediaFinder); ?>
                                         </div>
                                     </div>
                                     <div class="board-setting-wrapper hidden">
@@ -214,5 +210,4 @@
     </div>
 
 <?php $this->RenderEnd(); ?>
-
 <?php require('footer.inc.php'); ?>

@@ -1,11 +1,7 @@
 <?php $strPageTitle = 'Menüüpuu näited' ; ?>
 
 <?php require('examples-header.inc.php'); ?>
-
-<?php // require(QCUBED_CONFIG_DIR . '/header.inc.php'); ?>
-
 <?php $this->RenderBegin(); ?>
-
 <!-- BEGIN CONTENT -->
 <div class="page-content-wrapper">
     <div class="page-content">
@@ -190,10 +186,6 @@
             </div>
         </div>
         <!-- BEGIN CONTENT -->
-
 <?php $this->RenderEnd(); ?>
-
 <?php require('footer.inc.php'); ?>
-
-<?php // require(QCUBED_CONFIG_DIR . '/footer.inc.php'); ?>
 

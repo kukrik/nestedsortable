@@ -2,7 +2,6 @@
     .form-actions-wrapper  {display: block; background-color: #f5f5f5; border-radius: 4px; margin: 0 -15px; padding: 15px; text-align: left;}
     .form-actions  {display: block; background-color: #f5f5f5; border-radius: 4px; margin: 0 -15px 0 -15px; padding: 15px;}
     .form-horizontal .radio-inline {/*padding-top: 18px;*/margin-top: 0;margin-bottom: 0;}
-    .add-wrapper {display: block; margin-top: -15px; padding: 0 0 15px; border-bottom: #ddd 1px solid;}
     .setting-wrapper {margin-top: 0; padding: 30px 0 10px;}
     .link-wrapper {margin-top: 15px;/*text-align: left;*/}
 </style>
@@ -19,6 +18,7 @@
                 <div class="row">
                     <div class="col-md-12">
                         <div class="add-wrapper">
+                            <?= _r($this->btnRefresh); ?>
                             <?= _r($this->btnAddNewMapping); ?>
                         </div>
                     </div>

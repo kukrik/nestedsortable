@@ -4,7 +4,8 @@ use QCubed as Q;
 use QCubed\Action\Ajax;
 use QCubed\Bootstrap as Bs;
 use QCubed\Event\Change;
-use QCubed\Project\Control\FormBase;
+    use QCubed\Exception\Caller;
+    use QCubed\Project\Control\FormBase;
 use QCubed\Project\Control\ControlBase;
 use QCubed\Project\Application;
 use QCubed\Action\ActionParams;
@@ -109,13 +110,13 @@ class RecordsPanel extends Q\Control\Panel
     protected $blnPeakRecord;
     protected $blnExistingRecord;
 
-    protected $strTemplate = 'RecordsPanel.tpl.php';
+    protected string $strTemplate = 'RecordsPanel.tpl.php';
 
     public function __construct($objParentObject, $strControlId = null)
     {
         try {
             parent::__construct($objParentObject, $strControlId);
-        } catch (\QCubed\Exception\Caller $objExc) {
+        } catch (Caller $objExc) {
             $objExc->IncrementOffset();
             throw $objExc;
         }
@@ -1619,7 +1620,7 @@ class RecordsPanel extends Q\Control\Panel
         $this->txtDifference->Text = $objEdit->getDifference();
         $this->txtDetailedResult->Text = $objEdit->getDetailedResult();
         $this->txtCompetitionVenue->Text = $objEdit->getCompetitionVenue();
-        $this->dtxCompetitionDate->Text = $objEdit->getCompetitionDate() ? $objRecord->getCompetitionDate()->qFormat('DD.MM.YYYY') : null;
+        //$this->dtxCompetitionDate->Text = $objEdit->getCompetitionDate() ? $objRecord->getCompetitionDate()->qFormat('DD.MM.YYYY') : null;
         $this->lstStatus->SelectedValue = $objEdit->getStatus();
 
         $this->lstStatus->refresh();

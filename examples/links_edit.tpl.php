@@ -1,10 +1,7 @@
 <?php $strPageTitle = t('Links edit'); ?>
-
 <?php require('header.inc.php'); ?>
 <?php $this->RenderBegin(); ?>
-
     <style>
-        .select2-container--web-vauu .select2-results__option[aria-disabled=true] {display: none;}
         .form-actions-wrapper  {display: block; background-color: #f5f5f5; border-radius: 4px; margin: 0 -15px; padding: 15px; text-align: left;}
         .form-actions  {display: block; background-color: #f5f5f5; border-radius: 4px; margin: 15px -15px 0 -15px; padding: 15px;}
         .form-horizontal .radio-inline {/*padding-top: 18px;*/margin-top: 0;margin-bottom: 0;}
@@ -28,7 +25,6 @@
         .icon-set, .btn-icon {display: inline-block; font-size: 16px; color: #7d898d; background-color: transparent; width: 38px; height: 38px; padding: 7px; text-align: center; vertical-align: middle; cursor: pointer;}
         .icon-set:hover, .btn-icon:hover {background: #f6f6f6; color: inherit; text-decoration: none; border: #7d898d 1px solid; border-radius: 4px;}
     </style>
-
     <div class="page-content">
         <div class="row">
             <div class="col-md-12">
@@ -158,7 +154,5 @@
             </div>
         </div>
     </div>
-
 <?php $this->RenderEnd(); ?>
-
 <?php require('footer.inc.php'); ?>

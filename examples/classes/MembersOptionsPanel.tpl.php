@@ -17,7 +17,6 @@
     .status-info .radio-inline {vertical-align: baseline !important;}
     .div-buttons {display: inline-block; width: 33%; vertical-align: middle; text-align: right;}
 </style>
-
 <div class="form-horizontal">
     <div class="row">
         <div class="col-md-12">

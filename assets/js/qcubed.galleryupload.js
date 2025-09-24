@@ -124,16 +124,10 @@
         const input = file_input.querySelector("#files");
         const all_start = document.querySelector(".all-start");
         const all_cancel = document.querySelector(".all-cancel");
+        const back = document.querySelector(".back");
         const fileupload_donebar = document.querySelector(".fileupload-donebar");
         const done_button = document.querySelector(".done");
 
-        // Get a reference to 5 divs
-        const upload_wrapper = document.querySelector(".upload-wrapper");
-        const album_fileinfo_wrapper = document.querySelector('.album-fileinfo-wrapper');
-        const album_tools_wrapper = document.querySelector('.album-tools-wrapper');
-        const table_body = document.querySelector('.table-body');
-        const data_numbers = table_body.getAttribute('data-numbers');
-        const fileupload_buttonbar = document.querySelector(".fileupload-buttonbar");
 
         /////////////////////////////////////////
 
@@ -156,9 +150,6 @@
 
         // Get a reference to div of the table
         const files = document.querySelector(".files");
-
-        // Get a reference to the right div
-        const right_box = document.querySelector(".right-box");
 
         /////////////////////////////////////////
 
@@ -190,12 +181,8 @@
         function handleFileSelect(e) {
             all_start.classList.remove("disabled");
             all_cancel.classList.remove("disabled");
-            upload_wrapper.classList.remove("hidden");
-            fileupload_donebar.classList.add('hidden');
-            album_fileinfo_wrapper.classList.add('hidden');
-            album_tools_wrapper.classList.add('hidden');
-            right_box.classList.add("right-box-disabled");
-
+            back.classList.add("disabled");
+            back.setAttribute("disabled", "disabled");
             // Clear the alert/alerts
             alert_wrapper.innerHTML = "";
             alert_multi_wrapper.innerHTML = "";
@@ -320,15 +307,7 @@
             }
             errorsExistenceControl();
 
-            if (storedFiles.length > 0) {
-                upload_wrapper.classList.remove("hidden");
-                table_body.classList.add('hidden');
-            } else {
-                upload_wrapper.classList.add("hidden");
-                album_fileinfo_wrapper.classList.remove('hidden');
-                album_tools_wrapper.classList.remove('hidden');
-                table_body.classList.remove('hidden');
-            }
+            console.log(storedFiles);
         }
 
         //////////////////////////////////////////
@@ -347,6 +326,8 @@
                 file_input.classList.add("disabled");
                 all_start.classList.add("disabled");
                 all_cancel.classList.add("disabled");
+                back.classList.add("disabled");
+                back.setAttribute("disabled", "disabled");
 
                 const children = document.querySelectorAll(".cancel");
                 for (let i = 0, len = children.length; i < len; i++) {
@@ -511,6 +492,10 @@
 
                             all_start.classList.add("disabled");
                             all_cancel.classList.add("disabled");
+
+                            back.classList.add("disabled");
+                            back.setAttribute("disabled", "disabled");
+
                             done_button.classList.remove("hidden");
                         }
                     }
@@ -597,6 +582,9 @@
                         all_start.setAttribute('disabled', 'disabled');
                         all_cancel.classList.add("disabled");
                         all_cancel.setAttribute('disabled', 'disabled');
+
+                        back.classList.add("disabled");
+                        back.setAttribute("disabled", "disabled");
                     }
                 }
             })
@@ -816,12 +804,6 @@
         //////////////////////////////////////////
 
         function cancelAllUploads() {
-
-            // Check if there are pictures in the album or not?
-            if (data_numbers.length) {
-                table_body.classList.remove('hidden');
-            }
-
             // If undo the action back, throw an alert
             if (storedFiles.length > 0 || (storedFiles.length > 0 && storedErrors.length > 0)) {
                 show_alert(languages[options.language].upload_cancelled_Lbl, "info");
@@ -851,10 +833,9 @@
                 file_input.classList.remove("disabled");
                 all_start.classList.add("disabled");
                 all_cancel.classList.add("disabled");
-                upload_wrapper.classList.add("hidden");
-                album_fileinfo_wrapper.classList.remove('hidden');
-                album_tools_wrapper.classList.remove('hidden');
-                right_box.classList.remove("right-box-disabled");
+
+                back.classList.remove("disabled");
+                back.removeAttribute("disabled");
                 return;
             }
 
@@ -932,22 +913,8 @@
                 all_start.classList.add("disabled");
                 all_cancel.classList.add("disabled");
 
-                // Check if there are pictures in the album or not?
-                if (data_numbers.length) {
-                    table_body.classList.remove('hidden');
-                }
-            }
-
-            if (storedFiles.length > 0) {
-                upload_wrapper.classList.remove("hidden");
-                album_fileinfo_wrapper.classList.add('hidden');
-                album_tools_wrapper.classList.add('hidden');
-                right_box.classList.add("right-box-disabled");
-            } else {
-                upload_wrapper.classList.add("hidden");
-                album_fileinfo_wrapper.classList.remove('hidden');
-                album_tools_wrapper.classList.remove('hidden');
-                right_box.classList.remove("right-box-disabled");
+                back.classList.remove("disabled");
+                back.removeAttribute("disabled");
             }
         }
 
@@ -973,20 +940,21 @@
             alert_multi_wrapper.innerHTML = "";
             tbody.innerHTML = "";
 
-            storedFiles.length = 0;
-            uploadedFiles.length = 0;
-            storedQueue.length = 0;
-            interruptedFiles = 0;
-
             file_input.classList.remove("disabled");
-            all_start.classList.add("disabled");
-            all_cancel.classList.add("disabled");
+            input.removeAttribute('disabled');
+            all_start.removeAttribute('disabled');
+            all_cancel.removeAttribute('disabled');
 
-            upload_wrapper.classList.add("hidden");
-            album_fileinfo_wrapper.classList.remove("hidden");
-            table_body.classList.remove("hidden");
-            album_tools_wrapper.classList.remove("hidden");
-            right_box.classList.remove("right-box-disabled");
+            back.classList.remove("disabled");
+            back.removeAttribute("disabled");
+
+            fileupload_donebar.classList.add("hidden");
+
+            while (storedFiles.length > 0) {
+                storedFiles.pop();
+                storedQueue.pop();
+                uploadedFiles.pop();
+            }
         }
 
         //////////////////////////////////////////

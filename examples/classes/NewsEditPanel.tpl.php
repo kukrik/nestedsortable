@@ -36,6 +36,8 @@
                 <?= _r($this->txtTitleSlug); ?>
             </div>
         </div>
+
+
         <div class="row">
             <div class="col-md-offset-3 col-md-9">
                 <?= _r($this->btnGoToMenu); ?>
@@ -45,9 +47,3 @@
         <div class="form-actions fluid" style="height: 74px;"></div>
     </div>
 </div>
-
-
-
-
-
-

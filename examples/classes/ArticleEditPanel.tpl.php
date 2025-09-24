@@ -42,8 +42,8 @@
                 </div>
 
                 <script>
-                    var dialogPath = <?= json_encode(QCUBED_FILEMANAGER_URL, JSON_UNESCAPED_UNICODE); ?>;
-                    var bsCssPath = <?= json_encode(QCUBED_BOOTSTRAP_CSS, JSON_UNESCAPED_UNICODE); ?>;
+                    const dialogPath = <?= json_encode(dirname(QCUBED_FILEMANAGER_ASSETS_URL), JSON_UNESCAPED_UNICODE); ?>;
+                    const bsCssPath = <?= json_encode(QCUBED_BOOTSTRAP_CSS, JSON_UNESCAPED_UNICODE); ?>;
                     ckConfig = {
                         skin: 'moono',
                         width: '100%',
@@ -80,7 +80,7 @@
                         <?= _r($this->btnSaving); ?>
                         <?= _r($this->btnCancel); ?>
                     </div>
-               </div>
+                </div>
             </div>
 
             <div class="col-md-3 right-box padded-wrapper">
@@ -113,12 +113,11 @@
                     <?= _r($this->lblStatus); ?>
                     <?= _r($this->lstStatus); ?>
                 </div>
-<!--                <div class="form-group">-->
-<!--                    --><?php //= _r($this->lblConfirmationAsking); ?>
-<!--                    --><?php //= _r($this->chkConfirmationAsking); ?>
-<!--                </div>-->
+              <!--  <div class="form-group">-->
+                   <!-- --><?php /*= _r($this->lblConfirmationAsking); */?>
+                    <?php /*= _r($this->chkConfirmationAsking); */?>
+                <!--</div>-->
             </div>
-
         </div>
     </div>
 </div>

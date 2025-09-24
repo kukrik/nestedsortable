@@ -1,37 +1,40 @@
 <?php
-require('qcubed.inc.php');
-require ('classes/ContentTypesManagementEditPanel.class.php');
+    require('qcubed.inc.php');
+    require ('classes/ContentTypesManagementEditPanel.class.php');
+
+    error_reporting(E_ALL); // Error engine - always ON!
+    ini_set('display_errors', TRUE); // Error display - OFF in production env or real server
+    ini_set('log_errors', TRUE); // Error logging
 
 
+    use QCubed as Q;
+    use QCubed\Project\Control\FormBase as Form;
+    use QCubed\Exception\Caller;
+    use QCubed\Exception\InvalidCast;
 
-error_reporting(E_ALL); // Error engine - always ON!
-ini_set('display_errors', TRUE); // Error display - OFF in production env or real server
-ini_set('log_errors', TRUE); // Error logging
-
-
-use QCubed as Q;
-use QCubed\Bootstrap as Bs;
-use QCubed\Project\Control\ControlBase;
-use QCubed\Project\Control\FormBase as Form;
-use QCubed\Project\Application;
-
-/**
- * Class SampleForm
- */
-class SampleForm extends Form
-{
-    protected $nav;
-    protected $pnlPage;
-
-    protected function formCreate()
+    /**
+     * Class ContentTypesManagementEditForm
+     */
+    class ContentTypesManagementEditForm extends Form
     {
-        parent::formCreate();
+        protected Q\Plugin\Control\Tabs $nav;
 
-        $this->nav = new Q\Plugin\Control\Tabs($this);
-        $this->nav->addCssClass('tabbable tabbable-custom');
+        /**
+         * Initializes the form and sets up the navigation control and content type management edit panel.
+         *
+         * @return void
+         * @throws Caller
+         * @throws InvalidCast
+         */
+        protected function formCreate(): void
+        {
+            parent::formCreate();
 
-        $this->pnlPage = new ContentTypesManagementsEditPanel($this->nav);
-        $this->pnlPage->Name = t('Content type option edit');
+            $this->nav = new Q\Plugin\Control\Tabs($this);
+            $this->nav->addCssClass('tabbable tabbable-custom');
+
+            $page = new ContentTypesManagementsEditPanel($this->nav);
+            $page->Name = t('Content type option edit');
+        }
     }
-}
-SampleForm::run('SampleForm');
+    ContentTypesManagementEditForm::run('ContentTypesManagementEditForm');

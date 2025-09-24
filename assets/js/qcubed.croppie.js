@@ -225,8 +225,6 @@
         // Initialize the cropper when the modal is shown
         id.on('shown.bs.modal', function () {
 
-            //console.log("ELEMENT: ", elementId + "_ctl")
-
             qcubed.recordControlModification(elementId + "_ctl", "_IsOpen", true);
 
             var viewportWidth = parseInt($('#viewportWidth').val());

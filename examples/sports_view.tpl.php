@@ -1,7 +1,4 @@
 <?php require('header.inc.php'); ?>
-
-<?php // require(QCUBED_CONFIG_DIR . '/header.inc.php'); ?>
-
 <?php $this->RenderBegin(); ?>
 
 <div class="page-container">
@@ -13,9 +10,5 @@
         </div>
     </div>
 </div>
-
 <?php $this->RenderEnd(); ?>
-
 <?php require('footer.inc.php'); ?>
-
-<?php // require(QCUBED_CONFIG_DIR . '/footer.inc.php'); ?>

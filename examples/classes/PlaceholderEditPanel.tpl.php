@@ -43,9 +43,3 @@
         <div class="form-actions fluid" style="height: 74px;"></div>
     </div>
 </div>
-
-
-
-
-
-

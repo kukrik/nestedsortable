@@ -2,13 +2,13 @@
 
 namespace QCubed\Plugin\Control;
 
-require_once(dirname(dirname(__DIR__)) . '/i18n/i18n-lib.inc.php');
-use QCubed\Application\t;
+require_once(dirname(__DIR__, 2) . '/i18n/i18n-lib.inc.php');
 
-use QCubed as Q;
+
 use QCubed\Css\TextAlignType;
 use QCubed\Exception\Caller;
 use QCubed\Exception\InvalidCast;
+use QCubed\Project\Control\ControlBase;
 use QCubed\QString;
 use QCubed\Type;
 use QCubed\TagStyler;
@@ -19,11 +19,11 @@ use QCubed\Bootstrap as Bs;
 /**
  * Class Checkbox
  *
- * Outputs a bootstrap style checkbox, and also takes into account the client's desired theme.
+ * Outputs a bootstrap style checkbox and also takes into account the client's a desired theme.
  *
- * @property string $Text is used to display text that is displayed next to the checkbox.  The text is rendered as an html "Label For" the checkbox.
+ * @property string $Text is used to display text that is displayed next to the checkbox. The text is rendered as an HTML "Label For" the checkbox.
  * @property string $TextAlign specifies if "Text" should be displayed to the left or to the right of the checkbox.
- * @property boolean $Checked specifices whether or not hte checkbox is checked
+ * @property boolean $Checked specifics whether or not the checkbox is checked
  * @property boolean $HtmlEntities specifies whether the checkbox text will have to be run through htmlentities or not.
  * @property string $WrapperClass $WrapperClass only sets or returns the CSS class of this wrapped in a div.
  * @property string $WrapperStyle
@@ -32,48 +32,40 @@ use QCubed\Bootstrap as Bs;
  * @property-write boolean $Inline whether checkbox should be displayed inline or wrapped in a div
  * @package QCubed\Plugin
  */
-class Checkbox extends Q\Project\Control\ControlBase
+class Checkbox extends ControlBase
 {
     /** @var string Tag for rendering the control */
-    protected $strTag = 'input';
-
-    // APPEARANCE
-    /** @var string Text opposite to the checkbox */
-    protected $strText = null;
+    protected string $strTag = 'input';
+    /** @var null|string Text opposite to the checkbox */
+    protected ?string $strText = null;
     /** @var string the alignment of the string */
-    protected $strTextAlign = TextAlignType::RIGHT;
-
-    // BEHAVIOR
+    protected string $strTextAlign = TextAlignType::RIGHT;
     /** @var bool Should the htmlentities function be run on the control's text (strText)? */
-    protected $blnHtmlEntities = true;
-
-    // MISC
+    protected bool $blnHtmlEntities = true;
     /** @var bool Determines whether the checkbox is checked? */
-    protected $blnChecked = false;
+    protected bool $blnChecked = false;
 
     /**
      * @var  TagStyler for labels of checkboxes. If side-by-side labeling, the styles will be applied to a
-     * span that wraps both the checkbox and the label.
+     * Span that wraps both the checkbox and the label.
      */
-    protected $objLabelStyle;
+    protected ?TagStyler $objLabelStyle = null;
 
-    protected $blnInline = false;
-    protected $blnWrapLabel = false;
-    protected $strInputClass = null;
-    protected $strWrapperClass = null;
+    protected bool $blnInline = false;
+    protected bool $blnWrapLabel = false;
+    protected ?string $strInputClass = null;
+    protected ?string $strWrapperClass = null;
 
-    protected $strLabelAttributes;
-
-
-    //////////
-    // Methods
-    //////////
+    protected string $strLabelAttributes = '';
 
     /**
-     * Parses the Post Data submitted for the control and sets the values
-     * according to the data submitted
+     * Parses the POST data related to the current control and updates the control's state accordingly.
+     *
+     * @return void
+     * @throws Caller
+     * @throws InvalidCast
      */
-    public function parsePostData()
+    public function parsePostData(): void
     {
         $val = $this->objForm->checkableControlValue($this->strControlId);
         if ($val !== null) {
@@ -84,24 +76,25 @@ class Checkbox extends Q\Project\Control\ControlBase
     /**
      * Returns the HTML code for the control which can be sent to the client.
      *
-     * Note, previous version wrapped this in a div and made the control a block level control unnecessarily. To
+     * Note, a previous version wrapped this in a div and made the control a block level control unnecessarily. To
      * achieve a block control, set blnUseWrapper and blnIsBlockElement.
      *
      * @return string THe HTML for the control
      */
-    protected function getControlHtml()
+    protected function getControlHtml(): string
     {
         $attrOverride = array('type' => 'checkbox', 'name' => $this->strControlId, 'value' => 'true');
         return $this->renderButton($attrOverride);
     }
 
     /**
-     * Render the button code. Broken out to allow QRadioButton to use it too.
+     * Renders an HTML button with optional attributes and customizations.
      *
-     * @param $attrOverride
-     * @return string
+     * @param array $attrOverride An associative array of attributes to override or add to the rendered button.
+     *
+     * @return string The rendered HTML markup for the button.
      */
-    protected function renderButton($attrOverride)
+    protected function renderButton(array $attrOverride): string
     {
         if ($this->blnChecked) {
             $attrOverride['checked'] = 'checked';
@@ -113,7 +106,7 @@ class Checkbox extends Q\Project\Control\ControlBase
 
         $strText = ($this->blnHtmlEntities) ? QString::htmlEntities($this->strText) : $this->strText;
 
-        if (strlen($this->strText ?? '')) {
+        if ($this->strText) {
             $this->strLabelAttributes = ' for="' . $this->strControlId . '"';
         }
 
@@ -124,16 +117,15 @@ class Checkbox extends Q\Project\Control\ControlBase
             $this->strLabelAttributes,
             $this->blnWrapLabel
         );
-        $strCheckHtml = Html::renderTag('div', $this->renderLabelAttributes(), $strCheckHtml);
 
-        return $strCheckHtml;
+        return Html::renderTag('div', $this->renderLabelAttributes(), $strCheckHtml);
     }
 
     /**
      * Return a styler to style the label that surrounds the control if the control has text.
      * @return TagStyler
      */
-    public function getCheckLabelStyler()
+    public function getCheckLabelStyler(): TagStyler
     {
         if (!$this->objLabelStyle) {
             $this->objLabelStyle = new TagStyler();
@@ -142,13 +134,13 @@ class Checkbox extends Q\Project\Control\ControlBase
     }
 
     /**
-     * There is a little bit of a conundrum here. If there is text assigned to the checkbox, we wrap
-     * the checkbox in a label. However, in this situation, its unclear what to do with the class and style
+     * There is a little bit of a conundrum here. If there is a text assigned to the checkbox, we wrap
+     * the checkbox in a label. However, in this situation, it's unclear what to do with the class and style
      * attributes that are for the checkbox. We are going to let the developer use the label styler to make
      * it clear what their intentions are.
      * @return string
      */
-    protected function renderLabelAttributes()
+    protected function renderLabelAttributes(): string
     {
         $objStyler = new TagStyler();
         $attributes = $this->getHtmlAttributes(null, null, ['title']); // copy tooltip to wrapping label
@@ -171,12 +163,12 @@ class Checkbox extends Q\Project\Control\ControlBase
     }
 
     /**
-     * Checks whether the post data submitted for the control is valid or not
+     * Checks whether the post-data submitted for the control is valid or not
      * Right now it tests whether or not the control was marked as required and then tests whether it
      * was checked or not
      * @return bool
      */
-    public function validate()
+    public function validate(): bool
     {
         if ($this->blnRequired) {
             if (!$this->blnChecked) {
@@ -192,39 +184,38 @@ class Checkbox extends Q\Project\Control\ControlBase
     }
 
     /**
-     * Returns the current state of the control to be able to restore it later.
+     * Retrieves the current state of the control as an associative array.
+     *
+     * @return array|null An associative array representing the control's state, or null if no state is available.
      */
-    public function getState()
+    public function getState(): ?array
     {
         return array('checked' => $this->Checked);
     }
 
     /**
-     * Restore the  state of the control.
+     * Restore the state of the control.
      *
      * @param mixed $state
      */
-    public function putState($state)
+    public function putState(mixed $state): void
     {
         if (isset($state['checked'])) {
             $this->Checked = $state['checked'];
         }
     }
 
-    /////////////////////////
-    // Public Properties: GET
-    /////////////////////////
     /**
-     * PHP __get magic method implementation
-     * @param string $strName Name of the property
+     * Magic method to retrieve the value of a property.
      *
-     * @return mixed
-     * @throws Caller
+     * @param string $strName The name of the property to retrieve.
+     *
+     * @return mixed The value of the requested property.
+     * @throws Caller If the property does not exist or is inaccessible.
      */
-    public function __get($strName)
+    public function __get(string $strName): mixed
     {
         switch ($strName) {
-            // APPEARANCE
             case "Text": return $this->strText;
             case "TextAlign": return $this->strTextAlign;
             case "WrapperClass": return $this->strWrapperClass;
@@ -242,18 +233,17 @@ class Checkbox extends Q\Project\Control\ControlBase
         }
     }
 
-    /////////////////////////
-    // Public Properties: SET
-    /////////////////////////
     /**
-     * PHP __set magic method implementation
-     * @param string $strName
-     * @param string $mixValue
+     * Magic method to set the value of a property dynamically based on its name.
+     *
+     * @param string $strName The name of the property to set.
+     * @param mixed $mixValue The value to assign to the property.
      *
      * @return void
-     * @throws InvalidCast|Caller
+     * @throws Caller If the property name is invalid or cannot be set.
+     * @throws InvalidCast If the provided value cannot be cast to the expected type.
      */
-    public function __set($strName, $mixValue)
+    public function __set(string $strName, mixed $mixValue): void
     {
         switch ($strName) {
             case "Text":
@@ -337,15 +327,18 @@ class Checkbox extends Q\Project\Control\ControlBase
     }
 
     /**
-     * Returns an description of the options available to modify by the designer for the code generator.
+     * Returns an array of model connector parameters specific to this class, merged with its parent class parameters.
+     * Each parameter defines a configurable property for the model connector, enabling customization options such as
+     * label text, alignment, HTML entity encoding, and CSS classes.
      *
-     * @return QModelConnectorParam[]
+     * @return array The array of QModelConnectorParam objects representing the connector configuration options.
+     * @throws Caller
      */
-    public static function getModelConnectorParams()
+    public static function getModelConnectorParams(): array
     {
         return array_merge(parent::getModelConnectorParams(), array(
             new QModelConnectorParam (get_called_class(), 'Text', 'Label on checkbox', Type::STRING),
-            new QModelConnectorParam (get_called_class(), 'TextAlign', 'Left or right alignment of label',
+            new QModelConnectorParam (get_called_class(), 'TextAlign', 'Left or right alignment of a label',
                 QModelConnectorParam::SELECTION_LIST,
                 array(
                     '\\QCubed\\Css\\TextAlignType::RIGHT' => 'Right',
@@ -357,5 +350,4 @@ class Checkbox extends Q\Project\Control\ControlBase
                 'The css class(es) to apply to the checkbox and label together', Type::STRING)
         ));
     }
-
 }
