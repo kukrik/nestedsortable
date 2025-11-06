@@ -13,6 +13,6 @@ use QCubed\Event\EventBase;
 
 class ChangeObject extends EventBase {
 
-    const EVENT_NAME = 'changeobject';
-    const JS_RETURN_PARAM = 'ui';
+    const string EVENT_NAME = 'changeobject';
+    const string JS_RETURN_PARAM = 'ui';
 }
