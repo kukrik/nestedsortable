@@ -23,17 +23,17 @@
                 <?= _r($this->txtDescription); ?>
             </div>
         </div>
-        <div class="row">
+<!--        <div class="row">
             <div class="col-md-offset-3 col-md-9">
-                <?= _r($this->lblAuthorHint); ?>
+                <?php /*= _r($this->lblAuthorHint); */?>
             </div>
         </div>
         <div class="form-group">
-            <?= _r($this->lblAuthor); ?>
+            <?php /*= _r($this->lblAuthor); */?>
             <div class="col-md-9">
-                <?= _r($this->txtAuthor); ?>
+                <?php /*= _r($this->txtAuthor); */?>
             </div>
-        </div>
+        </div>-->
         <div class="form-actions fluid">
             <div class="col-md-offset-3 col-md-9">
                 <?= _r($this->btnSave); ?>

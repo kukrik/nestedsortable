@@ -95,13 +95,14 @@
         protected int $intStatus;
 
         /**
-         * Constructor method for initializing the control object. It ensures a proper setup by calling the parent constructor
-         * and registers the necessary files.
+         * Constructor method for initializing the control object. It ensures a proper setup by calling the parent
+         * constructor and registers the necessary files.
          *
          * @param mixed $objParentObject The parent object to which this control belongs.
          * @param string|null $strControlId An optional control ID to uniquely identify the control. Defaults to null.
          *
          * @return void
+         * @throws \Exception
          * @throws Caller If an error occurs during the parent constructor call.
          */
         public function __construct(ControlBase|FormBase $objParentObject, ?string $strControlId = null)
@@ -128,7 +129,8 @@
             $this->addJavascriptFile(QCUBED_NESTEDSORTABLE_ASSETS_URL . "/js/select2.js");
             $this->AddCssFile(QCUBED_BOOTSTRAP_CSS); // make sure they know
             $this->AddCssFile(QCUBED_FONT_AWESOME_CSS); // make sure they know
-            $this->addCssFile(QCUBED_NESTEDSORTABLE_ASSETS_URL . "/css/style.css");
+            //$this->addCssFile(QCUBED_NESTEDSORTABLE_ASSETS_URL . "/css/style.css");
+            $this->addCssFile(NESTEDSORTABLE_BACKEND_URL . "/assets/css/style.css");
             Bs\Bootstrap::loadJS($this);
         }
 
@@ -636,13 +638,13 @@ $strEmptyMenuText
                 $parentId = end($selectedPageArray);
                 $selectedPageId = $objMenuContent::load($parentId)->SelectedPageId;
 
-                 if (!in_array($selectedPageId, $selectedPageArray)) {
-                     // Check if SelectedPageLocked is 1
-                     if ($objContent->SelectedPageLocked == 1) {
-                         $countPageLocks++;
-                     }
-                 } else {
-                     return 0;
+                if (!in_array($selectedPageId, $selectedPageArray)) {
+                    // Check if SelectedPageLocked is 1
+                    if ($objContent->SelectedPageLocked == 1) {
+                        $countPageLocks++;
+                    }
+                } else {
+                    return 0;
                 }
             }
 
@@ -663,7 +665,7 @@ $strEmptyMenuText
          * Generates an array of jQuery UI options for the control, including a custom 'create' event handler.
          *
          * @return array An associative array containing jQuery UI options, where the 'create' option is a JavaScript closure
-         *               that processes the nested sortable structure and records control modifications within the framework.
+         *               in that process the nested sortable structure and records control modifications within the framework.
          */
         public function makeJqOptions(): array
         {

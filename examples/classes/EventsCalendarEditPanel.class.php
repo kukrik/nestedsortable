@@ -1,6 +1,7 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
     use QCubed\Event\Click;
@@ -160,7 +161,7 @@
             $this->lstContentTypes->MinimumResultsForSearch = -1;
             $this->lstContentTypes->Theme = 'web-vauu';
             $this->lstContentTypes->Width = '100%';
-            $this->lstContentTypes->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstContentTypes->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstContentTypes->addItems($this->lstContentTypeObject_GetItems(), true);
             $this->lstContentTypes->SelectedValue = $this->objMenuContent->ContentType;
             $this->lstContentTypes->addAction(new Change(), new AjaxControl($this,'lstClassNames_Change'));

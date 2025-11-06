@@ -3,6 +3,7 @@
     use QCubed as Q;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Event\Click;
     use QCubed\Event\Change;
     use QCubed\Action\AjaxControl;
@@ -16,6 +17,7 @@
     use QCubed\Html;
     use QCubed\Project\Application;
     use QCubed\Control\ListItem;
+    use QCubed\QDateTime;
     use QCubed\Query\QQ;
     use QCubed\QString;
 
@@ -94,9 +96,11 @@
         protected object $objFrontendLinks;
         protected object $objArticle;
         protected object $objMetadata;
-        protected object $objUser;
 
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+        protected object $objPortlet;
+
         protected ?int $objOldPicture = null;
         protected string $updateSlug;
 
@@ -151,7 +155,9 @@
 
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
-            $this->intLoggedUserId = 4;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
+            $this->objUser = User::load($this->intLoggedUserId);
+            $this->objPortlet = Portlet::load(1);
 
             $this->createInputs();
             $this->createButtons();
@@ -160,6 +166,21 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+
+            $this->objPortlet->setLastDate(QDateTime::now());
+            $this->objPortlet->save();
+        }
 
         /**
          * Creates and configures the input controls and labels for editing menu and article details.
@@ -189,7 +210,6 @@
             $this->txtMenuText = new Bs\TextBox($this);
             $this->txtMenuText->Placeholder = t('Menu text');
             $this->txtMenuText->Text = $this->objMenuContent->MenuText;
-            $this->txtMenuText->addWrapperCssClass('center-button');
             $this->txtMenuText->setHtmlAttribute('required', 'required');
             $this->txtMenuText->Enabled = false;
 
@@ -202,7 +222,6 @@
             $this->txtTitle = new Bs\TextBox($this);
             $this->txtTitle->Placeholder = t('Title');
             $this->txtTitle->Text = $this->objArticle->Title;
-            $this->txtTitle->addWrapperCssClass('center-button');
             $this->txtTitle->MaxLength = Article::TITLE_MAX_LENGTH;
             $this->txtTitle->AddAction(new EnterKey(), new AjaxControl($this,'btnMenuSave_Click'));
             $this->txtTitle->addAction(new EnterKey(), new Terminate());
@@ -222,7 +241,7 @@
             $this->lstCategory->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstCategory->addItem(t('- Select one category'), null, true);
             $this->lstCategory->addItems($this->lstCategory_GetItems());
-            $this->lstCategory->SelectedValue = $this->objArticle->CategoryId;
+            $this->lstCategory->SelectedValue = $this->objArticle->ArticleCategoryId;
             $this->lstCategory->AddAction(new Change(), new AjaxControl($this,'lstCategory_Change'));
 
             if (CategoryOfArticle::countAll() == 0 || CategoryOfArticle::countAll() == CategoryOfArticle::countByIsEnabled(2)) {
@@ -238,6 +257,7 @@
 
             if ($this->txtTitle->Text) {
                 $this->txtTitleSlug = new Q\Plugin\Control\Label($this);
+                $this->txtTitleSlug->setCssStyle('text-align', 'left');
                 $url = (isset($_SERVER['HTTPS']) ? "https" : "http") . '://' . $_SERVER['HTTP_HOST'] . QCUBED_URL_PREFIX . $this->objArticle->getTitleSlug();
                 $this->txtTitleSlug->Text = Html::renderLink($url, $url, ["target" => "_blank", "class" => "view-link"]);
                 $this->txtTitleSlug->HtmlEntities = false;
@@ -258,14 +278,14 @@
             $this->lblPostDate->setCssStyle('font-weight', 'bold');
 
             $this->calPostDate = new Bs\Label($this);
-            $this->calPostDate->Text = $this->objArticle->PostDate->qFormat('DD.MM.YYYY hhhh:mm:ss');
+            $this->calPostDate->Text = $this->objArticle->PostDate->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time);
 
             $this->lblPostUpdateDate = new Q\Plugin\Control\Label($this);
             $this->lblPostUpdateDate->Text = t('Updated');
             $this->lblPostUpdateDate->setCssStyle('font-weight', 'bold');
 
             $this->calPostUpdateDate = new Bs\Label($this);
-            $this->calPostUpdateDate->Text = $this->objArticle->PostUpdateDate ? $this->objArticle->PostUpdateDate->qFormat('DD.MM.YYYY hhhh:mm:ss') : null;
+            $this->calPostUpdateDate->Text = $this->objArticle->PostUpdateDate ? $this->objArticle->PostUpdateDate->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time) : null;
 
             $this->lblAuthor = new Q\Plugin\Control\Label($this);
             $this->lblAuthor->Text = t('Author');
@@ -307,7 +327,7 @@
 
             $this->txtPictureDescription = new Bs\TextBox($this);
             $this->txtPictureDescription->Text = $this->objArticle->PictureDescription ? $this->objArticle->PictureDescription : null;
-            $this->txtPictureDescription->TextMode = Q\Control\TextBoxBase::MULTI_LINE;
+            $this->txtPictureDescription->TextMode = TextBoxBase::MULTI_LINE;
             $this->txtPictureDescription->AddAction(new EnterKey(), new AjaxControl($this,'btnMenuSave_Click'));
             $this->txtPictureDescription->addAction(new EnterKey(), new Terminate());
             $this->txtPictureDescription->AddAction(new EscapeKey(), new AjaxControl($this,'itemEscape_Click'));
@@ -353,12 +373,13 @@
         }
 
         /**
-         * Creates and configures the buttons for menu operations such as save, save and close, cancel, and navigation to article categories.
+         * Creates and configures the buttons for menu operations such as save, save and close, cancel, and navigation
+         * to article categories.
          *
          * @return void
          * @throws Caller
          */
-        public function CreateButtons(): void
+        public function createButtons(): void
         {
             $this->btnSave = new Bs\Button($this);
             if ($this->objArticle->getContent()) {
@@ -367,7 +388,6 @@
                 $this->btnSave->Text = t('Save');
             }
             $this->btnSave->CssClass = 'btn btn-orange';
-            $this->btnSave->addWrapperCssClass('center-button');
             $this->btnSave->PrimaryButton = true;
             $this->btnSave->addAction(new Click(), new AjaxControl($this,'btnMenuSave_Click'));
             // The variable below is being prepared for fast transmission
@@ -380,7 +400,6 @@
                 $this->btnSaving->Text = t('Save and close');
             }
             $this->btnSaving->CssClass = 'btn btn-darkblue';
-            $this->btnSaving->addWrapperCssClass('center-button');
             $this->btnSaving->PrimaryButton = true;
             $this->btnSaving->addAction(new Click(), new AjaxControl($this,'btnMenuSaveClose_Click'));
             // The variable below is being prepared for fast transmission
@@ -389,7 +408,6 @@
             $this->btnCancel = new Bs\Button($this);
             $this->btnCancel->Text = t('Back');
             $this->btnCancel->CssClass = 'btn btn-default';
-            $this->btnCancel->addWrapperCssClass('center-button');
             $this->btnCancel->CausesValidation = false;
             $this->btnCancel->addAction(new Click(), new AjaxControl($this,'btnMenuCancel_Click'));
 
@@ -399,7 +417,6 @@
             $this->btnGoToArticleCategroy->Glyph = 'fa fa-flip-horizontal fa-reply-all';
             $this->btnGoToArticleCategroy->CssClass = 'btn btn-default';
             $this->btnGoToArticleCategroy->setCssStyle('float', 'right');
-            $this->btnGoToArticleCategroy->addWrapperCssClass('center-button');
             $this->btnGoToArticleCategroy->CausesValidation = false;
             $this->btnGoToArticleCategroy->addAction(new Click(), new AjaxControl($this, 'btnGoToArticleCategory_Click'));
         }
@@ -534,6 +551,8 @@
 
             $this->objArticle->save();
             $this->objMenuContent->save();
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -556,7 +575,7 @@
             // Iterate through the Cursor
             while ($objCategory = CategoryOfArticle::instantiateCursor($objCategoryCursor)) {
                 $objListItem = new ListItem($objCategory->__toString(), $objCategory->Id);
-                if (($this->objArticle->Category) && ($this->objArticle->Category->Id == $objCategory->Id))
+                if (($this->objArticle->ArticleCategory) && ($this->objArticle->ArticleCategory->Id == $objCategory->Id))
                     $objListItem->Selected = true;
 
                 // <style> .select2-container--web-vauu .select2-results__option[aria-disabled=true]
@@ -585,18 +604,21 @@
          */
         protected function lstCategory_Change(ActionParams $params): void
         {
-            if ($this->lstCategory->SelectedValue !== $this->objArticle->getCategoryId()) {
-                $this->objArticle->setCategoryId($this->lstCategory->SelectedValue);
+            if ($this->lstCategory->SelectedValue !== $this->objArticle->getArticleCategoryId()) {
+                $this->objArticle->setArticleCategoryId($this->lstCategory->SelectedValue);
+                $this->objArticle->setCategory($this->lstCategory->SelectedName);
                 $this->objArticle->save();
+
+                $this->userOptions();
 
                 $this->dlgToastr1->notify();
             }
 
-            $this->objArticle->setPostUpdateDate(Q\QDateTime::now());
+            $this->objArticle->setPostUpdateDate(QDateTime::now());
             $this->objArticle->setAssignedEditorsNameById($this->intLoggedUserId);
             $this->objArticle->save();
 
-            $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat('DD.MM.YYYY hhhh:mm:ss');
+            $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time);
             $this->txtUsersAsArticlesEditors->Text = implode(', ', $this->objArticle->getUserAsArticlesEditorsArray());
 
             $this->refreshDisplay();
@@ -624,6 +646,7 @@
             } else {
                 $this->objMenuContent->setIsEnabled($this->lstStatus->SelectedValue);
                 $this->objMenuContent->setSettingLocked($this->lstStatus->SelectedValue);
+                $this->objArticle->setStatus($this->lstStatus->SelectedValue);
                 $this->objMenuContent->save();
 
                 if ($this->objMenuContent->getIsEnabled() === 1) {
@@ -634,11 +657,13 @@
                     $this->dlgModal5->showDialogBox();
                 }
 
-                $this->objArticle->setPostUpdateDate(Q\QDateTime::now());
+                $this->objArticle->setPostUpdateDate(QDateTime::now());
                 $this->objArticle->setAssignedEditorsNameById($this->intLoggedUserId);
                 $this->objArticle->save();
 
-                $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat('DD.MM.YYYY hhhh:mm:ss');
+                $this->userOptions();
+
+                $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time);
                 $this->txtUsersAsArticlesEditors->Text = implode(', ', $this->objArticle->getUserAsArticlesEditorsArray());
 
                 $this->refreshDisplay();
@@ -674,11 +699,13 @@
             $saveId = $this->objMediaFinder->Item;
 
             $this->objArticle->setPictureId($saveId);
-            $this->objArticle->setPostUpdateDate(Q\QDateTime::now());
+            $this->objArticle->setPostUpdateDate(QDateTime::now());
             $this->objArticle->setAssignedEditorsNameById($this->intLoggedUserId);
             $this->objArticle->save();
 
-            $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat('DD.MM.YYYY hhhh:mm:ss');
+            $this->userOptions();
+
+            $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time);
             $this->txtUsersAsArticlesEditors->Text = implode(', ', $this->objArticle->getUserAsArticlesEditorsArray());
 
             $this->refreshDisplay();
@@ -710,14 +737,16 @@
                 $objFiles->save();
             }
 
+            $this->userOptions();
+
             $this->objArticle->setPictureId(null);
             $this->objArticle->setPictureDescription(null);
             $this->objArticle->setAuthorSource(null);
-            $this->objArticle->setPostUpdateDate(Q\QDateTime::now());
+            $this->objArticle->setPostUpdateDate(QDateTime::now());
             $this->objArticle->setAssignedEditorsNameById($this->intLoggedUserId);
             $this->objArticle->save();
 
-            $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat('DD.MM.YYYY hhhh:mm:ss');
+            $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time);
             $this->txtUsersAsArticlesEditors->Text = implode(', ', $this->objArticle->getUserAsArticlesEditorsArray());
 
             $this->refreshDisplay();
@@ -802,7 +831,8 @@
             $this->updateSlug = $this->objMenuContent->getMenuTreeHierarchy() . '/' . QString::sanitizeForUrl(trim($this->txtTitle->Text));
 
             $this->objArticle->setTitleSlug($this->updateSlug);
-            $this->objArticle->setCategoryId($this->lstCategory->SelectedValue);
+            $this->objArticle->setArticleCategoryId($this->lstCategory->SelectedValue);
+            $this->objArticle->setCategory($this->lstCategory->SelectedName);
             $this->objArticle->setContent($this->txtContent->Text);
 
             if ($this->objArticle->PictureId) {
@@ -814,6 +844,8 @@
             }
 
             $this->objArticle->save();
+
+            $this->userOptions();
 
             $this->referenceValidation();
 
@@ -834,7 +866,7 @@
 
             $this->txtExistingMenuText->Text = $this->objMenuContent->getMenuText();
             $this->txtAuthor->Text = $this->objArticle->getAuthor();
-            $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat('DD.MM.YYYY hhhh:mm:ss');
+            $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time);
 
             if ($this->txtTitle->Text) {
                 $url = (isset($_SERVER['HTTPS']) ? "https" : "http") . '://' . $_SERVER['HTTP_HOST'] . QCUBED_URL_PREFIX . $this->objArticle->getTitleSlug();
@@ -942,7 +974,8 @@
         }
 
         /**
-         * Renders actions based on the current state of the article and menu content, with or without the presence of an ID.
+         * Renders actions based on the current state of the article and menu content, with or without the presence of
+         * an ID.
          *
          * @return void
          * @throws UndefinedPrimaryKey
@@ -953,7 +986,7 @@
         {
             if ($this->intId) {
                 if ($this->txtTitle->Text !== $this->objArticle->getTitle() ||
-                    $this->lstCategory->SelectedValue !== $this->objArticle->getCategoryId() ||
+                    $this->lstCategory->SelectedValue !== $this->objArticle->getArticleCategoryId() ||
                     $this->txtContent->Text !== $this->objArticle->getContent() ||
                     $this->objOldPicture !== $this->objArticle->getPictureId() ||
                     $this->txtPictureDescription->Text !== $this->objArticle->getPictureDescription() ||
@@ -965,8 +998,8 @@
                     $this->objArticle->setAssignedEditorsNameById($this->intLoggedUserId);
                     $this->txtUsersAsArticlesEditors->Text = implode(', ', $this->objArticle->getUserAsArticlesEditorsArray());
 
-                    $this->objArticle->setPostUpdateDate(Q\QDateTime::now());
-                    $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat('DD.MM.YYYY hhhh:mm:ss');
+                    $this->objArticle->setPostUpdateDate(QDateTime::now());
+                    $this->calPostUpdateDate->Text = $this->objArticle->getPostUpdateDate()->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time);
                     $this->objArticle->save();
 
                     if (!$this->txtTitle->Text) {
@@ -998,6 +1031,10 @@
         {
             $objArticle = Article::loadById($this->objArticle->getId());
 
+            if (!$objArticle->getContent()) {
+                return;
+            }
+
             $references = $objArticle->getFilesIds();
             $content = $objArticle->getContent();
 
@@ -1017,7 +1054,7 @@
             // Merge arrays into one
             $combinedArray = array_merge($matchesImg[1], $matchesA[1]);
 
-            if (!strlen($references)) {
+            if (!$references) {
                 $saveFilesIds = implode(',', $combinedArray);
                 $objArticle->setFilesIds($saveFilesIds);
                 $objArticle->save();
@@ -1110,6 +1147,7 @@
          */
         protected function redirectToListPage(): void
         {
-            Application::redirect('menu_manager.php');
+            //Application::redirect('menu_manager.php');
+            Application::executeJavaScript("history.go(-1);");
         }
     }

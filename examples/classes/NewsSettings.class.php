@@ -1,11 +1,14 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
     use QCubed\Project\Application;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\Change;
@@ -31,8 +34,8 @@
     class NewsSetting extends Panel
     {
         protected ?object $lstItemsPerPageByAssignedUserObject = null;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         public Bs\Modal $dlgModal1;
 
@@ -48,9 +51,9 @@
         public Bs\Button $btnCancel;
         public Bs\Button $btnGoToNews;
 
-        protected object $objUser;
-        protected int $intLoggedUserId;
         protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
 
         protected object $objMenuContent;
         protected ?object $objGroupTitleCondition = null;
@@ -95,7 +98,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 1;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createItemsPerPage();
@@ -109,6 +112,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes the NewsGroups data grid, sets up columns, pagination, editability,
@@ -125,13 +140,16 @@
             $this->dtgNewsGroups_MakeEditable();
             $this->dtgNewsGroups->RowParamsCallback = [$this, "dtgNewsGroups_GetRowParams"];
             $this->dtgNewsGroups->SortColumnIndex = 0;
-            $this->dtgNewsGroups->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum();
+            $this->dtgNewsGroups->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgNewsGroups->UseAjax = true;
         }
 
         /**
          * Initializes and creates columns for the data grid of newsgroups.
          *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         protected function dtgNewsGroups_CreateColumns(): void
         {
@@ -172,6 +190,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->intId = intval($params->ActionParameter);
             $objNewsGroups = NewsSettings::load($this->intId);
 
@@ -185,11 +205,7 @@
                 $this->btnGoToNews->Enabled = false;
             }
 
-            $this->dtgNewsGroups->addCssClass('disabled');
-            $this->txtNewsGroup->Display = true;
-            $this->txtNewsTitle->Display = true;
-            $this->btnSave->Display = true;
-            $this->btnCancel->Display = true;
+            $this->disableInputs();
         }
 
         /**
@@ -222,10 +238,6 @@
             $this->dtgNewsGroups->Paginator->LabelForPrevious = t('Previous');
             $this->dtgNewsGroups->Paginator->LabelForNext = t('Next');
 
-            $this->dtgNewsGroups->ItemsPerPage = 10;
-            $this->dtgNewsGroups->SortColumnIndex = 0;
-            $this->dtgNewsGroups->UseAjax = true;
-
             $this->addFilterActions();
         }
 
@@ -248,9 +260,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -260,25 +272,27 @@
          * This method queries the ItemsPerPage objects based on a condition and creates a list of ListItem objects,
          * marking the one associated with the current user as selected if applicable.
          *
-         * @return ListItem[] An array of ListItem objects, with one marked as selected if it matches the assigned user's settings.
+         * @return ListItem[] An array of ListItem objects, with one marked as selected if it matches the assigned
+         *     user's settings.
          * @throws DateMalformedStringException
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -286,11 +300,13 @@
          * Updates the number of items displayed per page in the data grid based on the selected option.
          *
          * @param ActionParams $params The action parameters containing the context for the change event.
+         *
          * @return void
+         * @throws Caller
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgNewsGroups->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgNewsGroups->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgNewsGroups->refresh();
         }
 
@@ -308,7 +324,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
 
@@ -331,6 +347,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -338,6 +355,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgNewsGroups->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -363,10 +381,12 @@
          * Refreshes the data grid of newsgroups whenever the filter criteria are modified.
          *
          * @return void
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgNewsGroups->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -441,7 +461,7 @@
             $this->txtNewsGroup = new Bs\TextBox($this);
             $this->txtNewsGroup->Placeholder = t('Newsgroup');
             $this->txtNewsGroup->ActionParameter = $this->txtNewsGroup->ControlId;
-            $this->txtNewsGroup->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtNewsGroup->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
             $this->txtNewsGroup->setHtmlAttribute('autocomplete', 'off');
             $this->txtNewsGroup->setCssStyle('float', 'left');
             $this->txtNewsGroup->setCssStyle('margin-right', '10px');
@@ -451,7 +471,7 @@
             $this->txtNewsTitle = new Bs\TextBox($this);
             $this->txtNewsTitle->Placeholder = t('News title');
             $this->txtNewsTitle->ActionParameter = $this->txtNewsTitle->ControlId;
-            $this->txtNewsTitle->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtNewsTitle->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
 
             $this->txtNewsTitle->AddAction(new EnterKey(), new AjaxControl($this, 'btnSave_Click'));
             $this->txtNewsTitle->addAction(new EnterKey(), new Terminate());
@@ -494,6 +514,7 @@
          * and a close button.
          *
          * @return void This method does not return any value.
+         * @throws Caller
          */
         public function createModals(): void
         {
@@ -528,9 +549,9 @@
         /**
          * Handles the save button click event to update newsgroup settings, menu content, and frontend links.
          *
-         * This method updates the newsgroup information based on user input, including the title and slug. It also updates the
-         * associated menu content and frontend link records. After saving the updates, it modifies the visibility and state
-         * of specific UI components and refreshes the data grid of newsgroups.
+         * This method updates the newsgroup information based on user input, including the title and slug. It also
+         * updates the associated menu content and frontend link records. After saving the updates, it modifies the
+         * visibility and state of specific UI components and refreshes the data grid of newsgroups.
          *
          * @param ActionParams $params Parameters related to the triggering of the save action.
          *
@@ -547,17 +568,19 @@
                 return;
             }
 
+            $this->userOptions();
+
             $objNewGroup = NewsSettings::load($this->intId);
             $objSelectedGroup = NewsSettings::selectedByIdFromNewsSettings($this->intId);
 
-            $objMenuContent = MenuContent::load($objSelectedGroup->getNewsGroupId());
-            $objFrontendLink = FrontendLinks::loadByIdFromFrontedLinksId($objSelectedGroup->getNewsGroupId());
+            $objMenuContent = MenuContent::load($objSelectedGroup->getMenuContentId());
+            $objFrontendLink = FrontendLinks::loadByIdFromFrontedLinksId($objSelectedGroup->getMenuContentId());
 
             $objMenuContent->updateMenuContent($this->txtNewsTitle->Text, $objNewGroup->getTitleSlug());
 
             $objNewGroup->setTitle($this->txtNewsTitle->Text);
             $objNewGroup->setTitleSlug($objMenuContent->getRedirectUrl());
-            $objNewGroup->setPostUpdateDate(Q\QDateTime::Now());
+            $objNewGroup->setPostUpdateDate(QDateTime::now());
             $objNewGroup->save();
 
             $objFrontendLink->setTitle($this->txtNewsTitle->Text);
@@ -569,13 +592,8 @@
                 $this->btnGoToNews->Enabled = true;
             }
 
-            $this->txtNewsGroup->Display = false;
-            $this->txtNewsTitle->Display = false;
-            $this->btnSave->Display = false;
-            $this->btnCancel->Display = false;
-
             $this->dtgNewsGroups->refresh();
-            $this->dtgNewsGroups->removeCssClass('disabled');
+            $this->enableInputs();
             $this->dlgToast1->notify();
         }
 
@@ -589,6 +607,7 @@
          *
          * @return void This method does not return any value.
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnCancel_Click(ActionParams $params): void
         {
@@ -598,18 +617,64 @@
                 return;
             }
 
+            $this->userOptions();
+
             if (!empty($_SESSION['news_edit_group']) || (!empty($_SESSION['news_settings_id']) || !empty($_SESSION['news_settings_group']))) {
                 $this->btnGoToNews->Display = true;
                 $this->btnGoToNews->Enabled = true;
             }
 
+            $this->enableInputs();
+            $this->txtNewsGroup->Text = '';
+            $this->txtNewsTitle->Text = '';
+        }
+
+        /**
+         * Enables input elements and controls associated with managing newsgroups.
+         *
+         * This method activates the interactivity for input fields, buttons, and controls,
+         * ensuring they are ready for user interaction.
+         *
+         * @return void
+         */
+        public function enableInputs(): void
+        {
             $this->txtNewsGroup->Display = false;
             $this->txtNewsTitle->Display = false;
             $this->btnSave->Display = false;
             $this->btnCancel->Display = false;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
+            $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
+            $this->dtgNewsGroups->Paginator->Enabled = true;
+
             $this->dtgNewsGroups->removeCssClass('disabled');
-            $this->txtNewsGroup->Text = '';
-            $this->txtNewsTitle->Text = '';
+        }
+
+        /**
+         * Disables input controls and pagination for the associated UI components.
+         *
+         * This method sets the `Enabled` property to false for several UI elements, including
+         * list controls, text inputs, buttons, data grids, and paginators, making them non-interactive.
+         *
+         * @return void
+         */
+        public function disableInputs(): void
+        {
+            $this->txtNewsGroup->Display = true;
+            $this->txtNewsTitle->Display = true;
+            $this->btnSave->Display = true;
+            $this->btnCancel->Display = true;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = false;
+            $this->txtFilter->Enabled = false;
+            $this->btnClearFilters->Enabled = false;
+            $this->dtgNewsGroups->Enabled = false;
+            $this->dtgNewsGroups->Paginator->Enabled = false;
+
+            $this->dtgNewsGroups->addCssClass('disabled');
+
         }
 
         /**

@@ -4,7 +4,9 @@
     use QCubed\Action\AjaxControl;
     use QCubed\Action\Terminate;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Event\CellClick;
     use QCubed\Event\Change;
@@ -16,6 +18,7 @@
     use QCubed\Exception\InvalidCast;
     use QCubed\Project\Application;
     use QCubed\Action\ActionParams;
+    use QCubed\QDateTime;
     use QCubed\Query\Condition\All;
     use QCubed\Control\ListItem;
     use QCubed\Query\Condition\OrCondition;
@@ -36,8 +39,8 @@
     class TargetCroupPanel extends Panel
     {
         protected ?object $lstItemsPerPageByAssignedUserObject = null;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToastr1;
         protected Q\Plugin\Toastr $dlgToastr2;
@@ -63,8 +66,8 @@
         public Bs\Button $btnCancel;
 
         protected int $intId;
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
 
         protected string $strTemplate = 'TargetCroupPanel.tpl.php';
 
@@ -103,7 +106,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 1;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createItemsPerPage();
@@ -118,6 +121,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and sets up the data grid for the target group.
@@ -137,7 +152,8 @@
             $this->dtgTargetGroup_MakeEditable();
             $this->dtgTargetGroup->RowParamsCallback = [$this, "dtgTargetGroup_GetRowParams"];
             $this->dtgTargetGroup->SortColumnIndex = 0;
-            $this->dtgTargetGroup->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum();
+            $this->dtgTargetGroup->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgTargetGroup->UseAjax = true;
         }
 
         /**
@@ -241,9 +257,6 @@
             //$this->dtgTargetGroup->PaginatorAlternate->LabelForPrevious = t('Previous');
             //$this->dtgTargetGroup->PaginatorAlternate->LabelForNext = t('Next');
 
-            $this->dtgTargetGroup->ItemsPerPage = 10;
-            $this->dtgTargetGroup->SortColumnIndex = 0;
-            $this->dtgTargetGroup->UseAjax = true;
             $this->addFilterActions();
         }
 
@@ -266,9 +279,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -281,20 +294,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -302,11 +316,14 @@
          * Handles the change event for the ItemsPerPageByAssignedUserObject list.
          *
          * @param ActionParams $params The parameters associated with the action triggering the change event.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgTargetGroup->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgTargetGroup->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgTargetGroup->refresh();
         }
 
@@ -324,7 +341,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
 
@@ -621,6 +638,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws \QCubed\Exception\Caller
          */
         protected function btnAddTargetGroup_Click(ActionParams $params): void
         {
@@ -629,6 +647,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->txtTargetGroup->Display = true;
             $this->lstStatus->Display = true;
@@ -670,8 +690,10 @@
                     $objTargetGroup = new TargetGroupOfCalendar();
                     $objTargetGroup->setName($this->txtTargetGroup->Text);
                     $objTargetGroup->setIsEnabled($this->lstStatus->SelectedValue);
-                    $objTargetGroup->setPostDate(Q\QDateTime::now());
+                    $objTargetGroup->setPostDate(QDateTime::now());
                     $objTargetGroup->save();
+
+                    $this->userOptions();
 
                     if (!empty($_SESSION['target_id']) || !empty($_SESSION['target_group'])) {
                         $this->btnGoToEvents->Display = true;
@@ -749,7 +771,7 @@
                     ($this->txtTargetGroup->Text !== $objTargetGroup->getName() && $this->lstStatus->SelectedValue == $objTargetGroup->getIsEnabled())) {
                     $objTargetGroup->setName(trim($this->txtTargetGroup->Text));
                     $objTargetGroup->setIsEnabled($this->lstStatus->SelectedValue);
-                    $objTargetGroup->setPostUpdateDate(Q\QDateTime::now());
+                    $objTargetGroup->setPostUpdateDate(QDateTime::now());
                     $objTargetGroup->save();
 
                     if (!empty($_SESSION['target_id']) || !empty($_SESSION['target_group'])) {
@@ -765,6 +787,8 @@
                 $this->txtTargetGroup->focus();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -797,6 +821,8 @@
             } else {
                 $this->dlgModal1->showDialogBox();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -811,7 +837,6 @@
          * @throws UndefinedPrimaryKey
          * @throws Caller
          * @throws InvalidCast
-         * @throws RandomException
          */
         public function deleteTargetGroupItem_Click(ActionParams $params): void
         {
@@ -837,6 +862,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function hideItem_Click(ActionParams $params): void
         {
@@ -847,6 +873,7 @@
             }
 
             $this->displayHelper();
+            $this->userOptions();
         }
 
         /**

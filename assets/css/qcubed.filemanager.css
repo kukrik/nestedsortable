@@ -19,7 +19,7 @@ body, html {
 }
 
 .upload-wrapper {
-    min-height: calc(100vh - 160px); /* Default value. Overwite this if you want. // 160 */
+    min-height: calc(100vh - 130px); /* Default value. Overwite this if you want. // 160 */
     width: 100%; /* Default value. Overwite this if you want. */
 }
 

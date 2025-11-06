@@ -28,15 +28,13 @@
      * @property string $TempUrl Default temp url APP_UPLOADS_TEMP_URL. If necessary, the temp url must be specified.
      * @property string $StoragePath Default dir named _files. This dir is generated together with the dirs
      *                               /thumbnail,  /medium,  /large when the corresponding page is opened for the first time.
-     * @property string $FullStoragePath Please see the setup() function! Can only be changed in this function.
+     * @property string $FullStoragePath Please a see the setup() function! Can only be changed in this function.
      *
      * @package QCubed\Plugin
      */
 
     class GalleryUploadHandler extends GalleryUploadHandlerGen
     {
-        /** @var string[] */
-        //protected $strFormAttributes = array('enctype' => 'multipart/form-data');
         /** @var string */
         protected string $strRootPath = APP_UPLOADS_DIR;
         /** @var string */
@@ -133,25 +131,25 @@
             $isHttps = isset($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] == 'on' || $_SERVER['HTTPS'] == 1)
                 || isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https';
 
-            /** clean and check $strRootPath */
+            /** Clean and check $strRootPath */
             $this->strRootPath = rtrim($this->strRootPath, '\\/');
             $this->strRootPath = str_replace('\\', '/', $this->strRootPath);
 
             $permissions = fileperms($this->strRootPath);
             $permissions = substr(sprintf('%o', $permissions), -4);
             if (!Folder::isWritable($this->strRootPath)) {
-                throw new Caller('Root path "' . $this->strRootPath . '" not writable or not found and
+                throw new Caller('Root path "' . $this->strRootPath . '" not writable or not found, and
             it has the following directory permissions: ' . $permissions . '. Please set 0755 or 0777 permissions to the
             directory or create a directory "upload" into the location "/project/assets" and grant permissions 0755 or 0777!');
-            };
+            }
 
             if (!Folder::isWritable($this->strRootPath)) {
-                throw new Caller('Root path "' . $this->strRootPath . '" not writable or not found and
+                throw new Caller('Root path "' . $this->strRootPath . '" not writable or not found, and
             it has the following directory permissions: ' . $permissions . '. Please set 0755 or 0777 permissions to the
             directory or create a directory "upload" into the location "/project/assets" and grant permissions 0755 or 0777!');
-            };
+            }
 
-            if (!Folder::isWritable($this->strFullStoragePath) && isset($this->strFullStoragePath)) {
+            if (!Folder::isWritable($this->strFullStoragePath)) {
                 throw new Caller('Storage path "' . $this->strTempPath . '/' . $this->strStoragePath .
                     '" not writable or not found." Please set permissions to the 0777 directory "/project/tmp", the "_files" folder and subfolders!');
             }

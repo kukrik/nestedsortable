@@ -1,11 +1,14 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\Change;
@@ -30,8 +33,8 @@
     class NewsCategoriesManager extends Panel
     {
         protected Q\Plugin\Select2 $lstItemsPerPageByAssignedUserObject;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToastr1;
         protected Q\Plugin\Toastr $dlgToastr2;
@@ -56,8 +59,8 @@
         public Bs\Button $btnCancel;
 
         protected int $intId;
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
 
         protected string $strTemplate = 'NewsCategoriesManager.tpl.php';
 
@@ -93,7 +96,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 2;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createItemsPerPage();
@@ -106,6 +109,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and configures the NewsCategoriesTable for displaying news categories.
@@ -123,8 +138,8 @@
             $this->dtgCategoryOfNewses_MakeEditable();
             $this->dtgCategoryOfNewses->RowParamsCallback = [$this, "dtgCategoryOfNewses_GetRowParams"];
             $this->dtgCategoryOfNewses->SortColumnIndex = 0;
-            $this->dtgCategoryOfNewses->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum(); //__toString();
-
+            $this->dtgCategoryOfNewses->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgCategoryOfNewses->UseAjax = true;
         }
 
         /**
@@ -172,6 +187,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->intId = intval($params->ActionParameter);
             $objCategoryNews = CategoryOfNews::load($this->intId);
 
@@ -179,14 +196,17 @@
             $this->txtCategory->focus();
             $this->lstStatus->SelectedValue = $objCategoryNews->IsEnabled ?? null;
 
-            $this->dtgCategoryOfNewses->addCssClass('disabled');
             $this->btnAddCategory->Enabled = false;
             $this->btnGoToNews->Display = false;
-            $this->txtCategory->Display = true;
-            $this->lstStatus->Display = true;
-            $this->btnSave->Display = true;
-            $this->btnDelete->Display = true;
-            $this->btnCancel->Display = true;
+
+            $this->disableInputs();
+
+            if (News::countByNewsCategoryId($this->intId)) {
+                $this->dlgModal3->showDialogBox();
+                $this->btnDelete->Enabled = false;
+            } else {
+                $this->btnDelete->Enabled = true;
+            }
         }
 
         /**
@@ -220,9 +240,6 @@
             $this->dtgCategoryOfNewses->Paginator->LabelForPrevious = t('Previous');
             $this->dtgCategoryOfNewses->Paginator->LabelForNext = t('Next');
 
-            $this->dtgCategoryOfNewses->ItemsPerPage = 10;
-            $this->dtgCategoryOfNewses->SortColumnIndex = 4;
-            $this->dtgCategoryOfNewses->UseAjax = true;
             $this->addFilterActions();
         }
 
@@ -241,9 +258,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -258,20 +275,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -279,11 +297,14 @@
          * Handles the change event for the items per page list controlled by an assigned user object.
          *
          * @param ActionParams $params The parameters for the action event that triggered this change.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgCategoryOfNewses->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgCategoryOfNewses->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgCategoryOfNewses->refresh();
         }
 
@@ -297,7 +318,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
 
@@ -320,6 +341,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -327,6 +349,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgCategoryOfNewses->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -353,10 +376,12 @@
          * Handles the event when a filter is changed in the CategoryOfNewses data table.
          *
          * @return void This method refreshes the data table to reflect any changes in the filter settings.
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgCategoryOfNewses->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -441,7 +466,7 @@
             $this->txtCategory = new Bs\TextBox($this);
             $this->txtCategory->Placeholder = t('New category');
             $this->txtCategory->ActionParameter = $this->txtCategory->ControlId;
-            $this->txtCategory->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtCategory->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
             $this->txtCategory->setHtmlAttribute('autocomplete', 'off');
             $this->txtCategory->setCssStyle('float', 'left');
             $this->txtCategory->setCssStyle('margin-right', '10px');
@@ -591,6 +616,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnAddCategory_Click(ActionParams $params): void
         {
@@ -600,16 +626,22 @@
                 return;
             }
 
+            $this->userOptions();
+
+            $this->btnAddCategory->Enabled = false;
             $this->btnGoToNews->Display = false;
-            $this->txtCategory->Display = true;
-            $this->lstStatus->Display = true;
             $this->lstStatus->SelectedValue = 2;
-            $this->btnSaveCategory->Display = true;
-            $this->btnCancel->Display = true;
             $this->txtCategory->Text = '';
             $this->txtCategory->focus();
-            $this->btnAddCategory->Enabled = false;
-            $this->dtgCategoryOfNewses->addCssClass('disabled');
+
+            $this->disableInputs();
+
+            if (!$this->txtCategory->Text) {
+                $this->btnDelete->Display = false;
+            }
+
+            $this->btnSave->Display = false;
+            $this->btnSaveCategory->Display = true;
         }
 
         /**
@@ -636,16 +668,18 @@
                     $objCategoryNews = new CategoryOfNews();
                     $objCategoryNews->setName(trim($this->txtCategory->Text));
                     $objCategoryNews->setIsEnabled($this->lstStatus->SelectedValue);
-                    $objCategoryNews->setPostDate(Q\QDateTime::Now());
+                    $objCategoryNews->setPostDate(QDateTime::now());
                     $objCategoryNews->save();
 
                     if (!empty($_SESSION['news_categories_id']) || !empty($_SESSION['news_categories_group'])) {
                         $this->btnGoToNews->Display = true;
                     }
 
+                    $this->btnAddCategory->Enabled = true;
+                    $this->enableInputs();
+
                     $this->dtgCategoryOfNewses->refresh();
 
-                    $this->displayHelper();
                     $this->txtCategory->Text = '';
                     $this->dlgToastr1->notify();
                 } else {
@@ -658,6 +692,8 @@
                 $this->txtCategory->focus();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -697,22 +733,24 @@
 
                     $this->lstStatus->SelectedValue = 1;
                     $this->dlgModal2->showDialogBox();
-                    $this->displayHelper();
 
                 } else if (($this->txtCategory->Text == $objCategoryOfNews->getName() && $this->lstStatus->SelectedValue !== $objCategoryOfNews->getIsEnabled()) ||
                     ($this->txtCategory->Text !== $objCategoryOfNews->getName() && $this->lstStatus->SelectedValue == $objCategoryOfNews->getIsEnabled())) {
 
                     $objCategoryOfNews->setName(trim($this->txtCategory->Text));
                     $objCategoryOfNews->setIsEnabled($this->lstStatus->SelectedValue);
-                    $objCategoryOfNews->setPostUpdateDate(Q\QDateTime::now());
+                    $objCategoryOfNews->setPostUpdateDate(QDateTime::now());
                     $objCategoryOfNews->save();
 
                     if (!empty($_SESSION['news_categories_id']) || !empty($_SESSION['news_categories_group'])) {
                         $this->btnGoToNews->Display = true;
                     }
 
+                    $this->btnAddCategory->Enabled = true;
+                    $this->enableInputs();
+
                     $this->dtgCategoryOfNewses->refresh();
-                    $this->displayHelper();
+
                     $this->dlgToastr1->notify();
                 }
             } else {
@@ -720,6 +758,8 @@
                 $this->txtCategory->focus();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -747,10 +787,12 @@
 
             if (News::countByNewsCategoryId($this->intId)) {
                 $this->dlgModal3->showDialogBox();
-                $this->displayHelper();
+                $this->disableInputs();
             } else {
                 $this->dlgModal1->showDialogBox();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -773,9 +815,12 @@
 
             $this->dtgCategoryOfNewses->refresh();
 
-            $this->displayHelper();
+            $this->btnAddCategory->Enabled = true;
+            $this->enableInputs();
 
             $this->dlgModal1->hideDialogBox();
+
+            $this->userOptions();
         }
 
         /**
@@ -787,6 +832,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function hideItem_Click(ActionParams $params): void
         {
@@ -796,7 +842,10 @@
                 return;
             }
 
-            $this->displayHelper();
+            $this->userOptions();
+
+            $this->btnAddCategory->Enabled = true;
+            $this->enableInputs();
         }
 
         /**
@@ -809,6 +858,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnCancel_Click(ActionParams $params): void
         {
@@ -818,32 +868,67 @@
                 return;
             }
 
+            $this->userOptions();
+
             if (!empty($_SESSION['news_categories_id']) || !empty($_SESSION['news_categories_group'])) {
                 $this->btnGoToNews->Display = true;
             }
 
-            $this->displayHelper();
+            $this->btnAddCategory->Enabled = true;
+            $this->enableInputs();
             $this->txtCategory->Text = '';
+            $this->btnSaveCategory->Display = false;
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
         /**
-         * Configures the display properties and state of various UI components.
+         * Enables input fields and interactive elements within the form.
+         *
+         * This method activates specific UI components, including text fields, buttons,
+         * filters, and the paginator, making them available for user interaction. Some
+         * elements, such as gallery-related fields and save/cancel buttons, are hidden
+         * or disabled.
          *
          * @return void
          */
-        protected function displayHelper(): void
+        public function enableInputs(): void
         {
-            $this->btnAddCategory->Enabled = true;
             $this->txtCategory->Display = false;
             $this->lstStatus->Display = false;
-            $this->btnSaveCategory->Display = false;
             $this->btnSave->Display = false;
             $this->btnDelete->Display = false;
             $this->btnCancel->Display = false;
 
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
+            $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
+            $this->dtgCategoryOfNewses->Paginator->Enabled = true;
+
             $this->dtgCategoryOfNewses->removeCssClass('disabled');
+        }
+
+        /**
+         * Disables specific input elements and applies a disabled style to the news categories data grid.
+         *
+         * This method sets the `Enabled` property of specific input controls to `false`,
+         * indicating that those inputs are no longer interactable. Additionally, the data grid
+         * for gallery groups is styled with a disabled CSS class for visual feedback.
+         *
+         * @return void This method does not return any value.
+         */
+        public function disableInputs(): void
+        {
+            $this->txtCategory->Display = true;
+            $this->lstStatus->Display = true;
+            $this->btnSave->Display = true;
+            $this->btnDelete->Display = true;
+            $this->btnCancel->Display = true;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = false;
+            $this->txtFilter->Enabled = false;
+            $this->btnClearFilters->Enabled = false;
+            $this->dtgCategoryOfNewses->Paginator->Enabled = false;
+
+            $this->dtgCategoryOfNewses->addCssClass('disabled');
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////

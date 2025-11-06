@@ -15,6 +15,7 @@
         <div class="col-md-12">
             <div class="competition-add-wrapper">
                 <?= _r($this->btnAddCompetitionArea); ?>
+                <?= _r($this->btnRefresh); ?>
             </div>
         </div>
     </div>

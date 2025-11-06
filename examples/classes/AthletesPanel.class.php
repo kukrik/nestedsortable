@@ -6,6 +6,7 @@
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\CellClick;
@@ -26,13 +27,13 @@
     /**
      * Class AthletesPanel
      *
-     * This class represents a custom panel designed to manage athlete-related data and handle```php
+     * This class represents a custom panel designed to manage athlete-related data and handle
      */
     class AthletesPanel extends Panel
     {
         protected Q\Plugin\Select2 $lstItemsPerPageByAssignedUserObject;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToastr1;
         protected Q\Plugin\Toastr $dlgToastr2;
@@ -46,6 +47,7 @@
         protected Q\Plugin\Toastr $dlgToastr10;
         protected Q\Plugin\Toastr $dlgToastr11;
         protected Q\Plugin\Toastr $dlgToastr12;
+        protected Q\Plugin\Toastr $dlgToastr13;
 
         public Bs\Modal $dlgModal1;
         public Bs\Modal $dlgModal2;
@@ -58,6 +60,7 @@
         public Bs\Modal $dlgModal9;
 
         public Q\Plugin\Control\Alert $lblInfo;
+        public Bs\Button $btnRefresh;
         public Bs\Button $btnAddNewRecordsHolder;
 
         public Q\Plugin\Control\Label $lblFirstName;
@@ -90,8 +93,9 @@
         public AthletesTable $dtgAthletes;
 
         protected int $intId;
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected bool $blnEditMode = true;
         protected ?object $objAthlete = null;
         protected int $intNewHolderId;
@@ -136,7 +140,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 3;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createItemsPerPage();
@@ -151,6 +155,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Creates and initializes the Athletes data grid used for displaying athlete records.
@@ -171,7 +187,8 @@
             $this->dtgAthletes->RowParamsCallback = [$this, "dtgAthletes_GetRowParams"];
             $this->dtgAthletes->SortColumnIndex = 1;
             $this->dtgAthletes->SortDirection = 1;
-            $this->dtgAthletes->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum();
+            $this->dtgAthletes->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgAthletes->UseAjax = true;
         }
 
         /**
@@ -220,6 +237,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->intId = intval($params->ActionParameter);
             $this->objAthlete = Athletes::load($this->intId);
 
@@ -233,6 +252,7 @@
 
             $this->lstItemsPerPageByAssignedUserObject->Enabled = false;
             $this->txtFilter->Enabled = false;
+            $this->btnClearFilters->Enabled = false;
             $this->dtgAthletes->Paginator->Enabled = false;
 
             $this->dtgAthletes->addCssClass('disabled');
@@ -280,9 +300,6 @@
             $this->dtgAthletes->Paginator->LabelForPrevious = t('Previous');
             $this->dtgAthletes->Paginator->LabelForNext = t('Next');
 
-            $this->dtgAthletes->ItemsPerPage = 10;
-            $this->dtgAthletes->SortColumnIndex = 0;
-            $this->dtgAthletes->UseAjax = true;
             $this->addFilterActions();
         }
 
@@ -301,8 +318,8 @@
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
             $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -318,20 +335,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -340,11 +358,14 @@
          * from the dropdown list of available options by the assigned user object.
          *
          * @param ActionParams $params Parameters passed from the triggered action.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgAthletes->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgAthletes->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgAthletes->refresh();
         }
 
@@ -383,6 +404,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -390,6 +412,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgAthletes->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -417,10 +440,12 @@
          * Refreshes the athlete data grid when the filter criteria are changed.
          *
          * @return void
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgAthletes->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -492,12 +517,14 @@
                 $this->lblInfo->Display = true;
                 $this->lstItemsPerPageByAssignedUserObject->Display = false;
                 $this->txtFilter->Display = false;
+                $this->btnClearFilters->Display = false;
                 $this->dtgAthletes->Paginator->Display = false;
                 $this->dtgAthletes->Display = false;
             } else {
                 $this->lblInfo->Display = false;
                 $this->lstItemsPerPageByAssignedUserObject->Display = true;
                 $this->txtFilter->Display = true;
+                $this->btnClearFilters->Display = true;
                 $this->dtgAthletes->Paginator->Display = true;
                 $this->dtgAthletes->Display = true;
             }
@@ -556,7 +583,6 @@
             $this->lblGender->addCssClass('col-md-4');
             $this->lblGender->setCssStyle('font-weight', 'normal');
             $this->lblGender->Required = true;
-
 
             $this->lstGender = new Q\Plugin\Select2($this);
             $this->lstGender->MinimumResultsForSearch = -1;
@@ -635,10 +661,21 @@
          */
         public function createButtons(): void
         {
+            $this->btnRefresh = new Bs\Button($this);
+            $this->btnRefresh->Tip = true;
+            $this->btnRefresh->ToolTip = t('Refresh tables');
+            $this->btnRefresh->Glyph = 'fa fa-refresh';
+            $this->btnRefresh->CssClass = 'btn btn-darkblue';
+            $this->btnRefresh->CausesValidation = false;
+            //$this->btnRefresh->setCssStyle('float', 'left');
+            $this->btnRefresh->setCssStyle('margin-left', '15px');
+            $this->btnRefresh->addAction(new Click(), new AjaxControl($this, 'btnRefresh_Click'));
+
             $this->btnAddNewRecordsHolder = new Bs\Button($this);
             $this->btnAddNewRecordsHolder->Text = t('Add a new record holder');
             $this->btnAddNewRecordsHolder->CssClass = 'btn btn-orange';
             $this->btnAddNewRecordsHolder->CausesValidation = false;
+            //$this->btnAddNewRecordsHolder->setCssStyle('margin-right', '15px');
             $this->btnAddNewRecordsHolder->addAction(new Click(), new AjaxControl($this, 'btnAddNewRecordsHolder_Click'));
 
             $this->btnBirthDate = new Bs\Button($this);
@@ -753,6 +790,12 @@
             $this->dlgToastr12->PositionClass = Q\Plugin\ToastrBase::POSITION_TOP_CENTER;
             $this->dlgToastr12->Message = t('<strong>Both first name and last name are required when adding a new record holder!');
             $this->dlgToastr12->ProgressBar = true;
+
+            $this->dlgToastr13 = new Q\Plugin\Toastr($this);
+            $this->dlgToastr13->AlertType = Q\Plugin\ToastrBase::TYPE_SUCCESS;
+            $this->dlgToastr13->PositionClass = Q\Plugin\ToastrBase::POSITION_TOP_CENTER;
+            $this->dlgToastr13->Message = t('The table has been updated!');
+            $this->dlgToastr13->ProgressBar = true;
         }
 
         /**
@@ -852,6 +895,30 @@
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         /**
+         * Handles the click event for the refresh button by performing necessary actions
+         * such as verifying the CSRF token, refreshing the athlete data grid, and triggering
+         * a notification dialog.
+         *
+         * @param ActionParams $params Encapsulates the parameters passed during the action event.
+         *
+         * @return void This method does not return any data.
+         * @throws Caller
+         * @throws RandomException
+         */
+        protected function btnRefresh_Click(ActionParams $params): void
+        {
+            if (!Application::verifyCsrfToken()) {
+                $this->dlgModal5->showDialogBox();
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                return;
+            }
+
+            $this->dtgAthletes->refresh();
+
+            $this->dlgToastr13->notify();
+        }
+
+        /**
          * Handles click action for adding a new record holder. Updates the UI elements,
          * initializes a new athlete record, and processes form fields for the new entry.
          *
@@ -885,6 +952,8 @@
             $this->blnEditMode = false;
 
             $this->resetInputs();
+
+            $this->userOptions();
         }
 
         /**
@@ -947,6 +1016,8 @@
 
                 unset($this->errors);
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -1021,6 +1092,8 @@
 
                 unset($this->errors);
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -1071,7 +1144,7 @@
 
                 $objAthlete = new Athletes();
                 $this->saveInputs($objAthlete);
-                $objAthlete->setPostDate(Q\QDateTime::now());
+                $objAthlete->setPostDate(QDateTime::now());
                 $objAthlete->setAssignedByUser($this->intLoggedUserId);
                 $objAthlete->setAuthor($objAthlete->getAssignedByUserObject());
                 $objAthlete->save();
@@ -1180,6 +1253,8 @@
             $this->dtgAthletes->refresh();
 
             unset($this->errors);
+
+            $this->userOptions();
         }
 
         /**
@@ -1279,8 +1354,11 @@
             $this->lstStatus->Enabled = true;
             $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
             $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
             $this->dtgAthletes->Paginator->Enabled = true;
             $this->dtgAthletes->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -1386,7 +1464,7 @@
          */
         protected function updateAndValidateAthlete(object $objAthlete): void
         {
-            $objAthlete->setPostUpdateDate(Q\QDateTime::now());
+            $objAthlete->setPostUpdateDate(QDateTime::now());
             $objAthlete->setAssignedEditorsNameById($this->intLoggedUserId);
             $objAthlete->save();
 
@@ -1415,6 +1493,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             if ($this->objAthlete->getIsLocked() === 2) {
                 $this->dlgModal2->showDialogBox();
@@ -1448,8 +1528,11 @@
 
             $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
             $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
             $this->dtgAthletes->Paginator->Enabled = true;
             $this->dtgAthletes->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -1480,6 +1563,7 @@
 
             $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
             $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
             $this->dtgAthletes->Paginator->Enabled = true;
             $this->dtgAthletes->removeCssClass('disabled');
 

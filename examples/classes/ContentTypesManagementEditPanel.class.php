@@ -9,6 +9,7 @@
     use QCubed\Event\EscapeKey;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\EnterKey;
@@ -58,6 +59,9 @@
         protected string $strSaveButtonId;
 
         protected ?int $intId = null;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected object $objContentTypesManagement;
 
         protected ?object $objDefaultFrontendTemplateCondition = null;
@@ -85,6 +89,9 @@
                 throw $objExc;
             }
 
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
+            $this->objUser = User::load($this->intLoggedUserId);
+
             $this->intId = Application::instance()->context()->queryStringItem('id');
 
             if (!empty($this->intId)) {
@@ -100,6 +107,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and creates input controls for content management,
@@ -451,6 +470,8 @@
                 $this->dlgToastr2->notify();
                 $this->inputsCheck();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -470,6 +491,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $frontendOption = FrontendOptions::loadByIdFromId($this->intId);
 
@@ -497,8 +520,10 @@
             $this->objContentTypesManagement->delete();
             $this->dlgModal1->hideDialogBox();
             $this->redirectToListPage();
+
+            $this->userOptions();
         }
-        
+
         /**
          * Handles the click event to hide an item and update related UI components.
          *
@@ -506,6 +531,7 @@
          *
          * @return void This method does not return a value.
          * @throws RandomException
+         * @throws Caller
          */
         protected function hideItem_Click(ActionParams $params): void
         {
@@ -514,6 +540,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->txtContentName->Text = $this->objContentTypesManagement->ContentName ?
                 $this->objContentTypesManagement->ContentName : null;
@@ -542,6 +570,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->redirectToListPage();
         }

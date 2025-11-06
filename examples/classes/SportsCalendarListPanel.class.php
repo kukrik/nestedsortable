@@ -1,11 +1,14 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Event\EscapeKey;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use QCubed\Query\Condition\AndCondition;
     use Random\RandomException;
     use QCubed\Event\Click;
@@ -36,8 +39,8 @@
     class SportsCalendarListPanel extends Panel
     {
         protected Q\Plugin\Select2 $lstItemsPerPageByAssignedUserObject;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToast1;
         protected Q\Plugin\Toastr $dlgToast2;
@@ -71,9 +74,10 @@
         public Bs\Button $btnBack;
 
         protected int $intId;
-        protected object $objUser;
-        protected int $intLoggedUserId;
-        protected object $objAssignedUser;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+        protected object $objPortlet;
+
         protected object $objMenuContent;
         protected object $objSportsCalendar;
         protected ?object $objEvents = null;
@@ -105,8 +109,9 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 4;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
+            $this->objPortlet = Portlet::load(5);
 
             $this->createInputs();
             $this->createButtons();
@@ -123,6 +128,37 @@
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
+
+        /**
+         * Updates the portlet with the total count of news items and the latest modification date.
+         * If news items are available, it sets the total count, assigns the current date and time
+         * as the last updated date, and saves these changes to the portlet.
+         *
+         * @return void
+         * @throws Caller
+         */
+        private function updatePortlet(): void
+        {
+            $objPage = SportsCalendar::countAll();
+
+            if ($objPage) {
+                $this->objPortlet->setTotalValue($objPage);
+                $this->objPortlet->setLastDate(QDateTime::now());
+                $this->objPortlet->save();
+            }
+        }
+
+        /**
          * Initializes and configures input controls including a year picker, a text box for event title,
          * and a group selection dropdown for target groups in the sports calendar application.
          *
@@ -133,7 +169,8 @@
         protected function createInputs(): void
         {
             $this->txtYear = new Q\Plugin\YearPicker($this);
-            $this->txtYear->Language = 'ee';
+            $this->txtYear->Language = $this->objUser->PreferredLanguageObject->Code;
+            $this->txtYear->Placeholder = t(' - Year -');
             $this->txtYear->TodayBtn = true;
             $this->txtYear->ClearBtn = true;
             $this->txtYear->AutoClose = true;
@@ -142,6 +179,7 @@
             $this->txtYear->setCssStyle('margin-left', '10px');
             $this->txtYear->Width = '100%';
             $this->txtYear->addAction(new Change(), new AjaxControl($this, 'setYear'));
+            $this->txtYear->AddJavascriptFile(BACKEND_URL . "/assets/js/locales/bootstrap-datetimepicker." . $this->objUser->PreferredLanguageObject->Code . ".js");
 
             $this->txtTitle = new Bs\TextBox($this);
             $this->txtTitle->Placeholder = t('Title of the new event');
@@ -156,7 +194,7 @@
             $this->lstTargetGroup->MinimumResultsForSearch = -1;
             $this->lstTargetGroup->Theme = 'web-vauu';
             $this->lstTargetGroup->Width = '100%';
-            $this->lstTargetGroup->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstTargetGroup->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstTargetGroup->addItem(t('- Select one sports calendar group -'), null, true);
 
             $objTargetGroups = SportsSettings::loadAll(QQ::Clause(QQ::orderBy(QQN::SportsSettings()->Id)));
@@ -388,6 +426,7 @@
 
             $this->updateLockStatus();
             $this->disableInputs();
+            $this->userOptions();
 
             $this->txtTitle->Text = '';
             $this->txtYear->show();
@@ -398,7 +437,7 @@
             $this->lstGroupTitle->MinimumResultsForSearch = -1;
             $this->lstGroupTitle->Theme = 'web-vauu';
             $this->lstGroupTitle->Width = '100%';
-            $this->lstGroupTitle->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstGroupTitle->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstGroupTitle->addItem(t('- Select one sports calendar group -'), null, true);
 
             $objGroups = SportsSettings::queryArray(
@@ -461,12 +500,13 @@
 
             $this->updateLockStatus();
             $this->disableInputs();
+            $this->userOptions();
 
             $this->lstEventsLocked = new Q\Plugin\Select2($this);
             $this->lstEventsLocked->MinimumResultsForSearch = -1;
             $this->lstEventsLocked->Theme = 'web-vauu';
             $this->lstEventsLocked->Width = '100%';
-            $this->lstEventsLocked->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstEventsLocked->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstEventsLocked->addItem(t('- Select one sports calendar group -'), null, true);
 
             $objGroups = SportsSettings::loadAll(QQ::Clause(QQ::orderBy(QQN::SportsSettings()->Id)));
@@ -623,6 +663,8 @@
 
             $this->enableInputs();
             $this->dtgSportsCalendars->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -648,6 +690,8 @@
             $this->elementsReset();
             $this->btnAddEvent->Enabled = true;
             $this->btnMove->Enabled = true;
+
+            $this->userOptions();
         }
 
         /**
@@ -770,7 +814,7 @@
                 $objFrontendOptions = FrontendOptions::loadById($objTemplateLocking->FrontendTemplateLockedId);
 
                 $objSportsCalendar = new SportsCalendar();
-                $objSportsCalendar->setPostDate(Q\QDateTime::now());
+                $objSportsCalendar->setPostDate(QDateTime::now());
                 $objSportsCalendar->setAssignedByUser($this->objUser->Id);
                 $objSportsCalendar->setYear($this->txtYear->Text);
                 $objSportsCalendar->setTitle($this->txtTitle->Text);
@@ -781,6 +825,9 @@
                 $objSportsCalendar->setAuthor($objSportsCalendar->getAssignedByUserObject());
                 $objSportsCalendar->saveSportsEvent($this->txtYear->Text, $this->txtTitle->Text, $objEventGroup->getTitleSlug());
                 $objSportsCalendar->save();
+
+                $this->userOptions();
+                $this->updatePortlet();
 
                 $objFrontendLinks = new FrontendLinks();
                 $objFrontendLinks->setLinkedId($objSportsCalendar->getId());
@@ -850,6 +897,8 @@
 
             $this->enableInputs();
             $this->dtgSportsCalendars->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -895,6 +944,8 @@
 
             $this->enableInputs();
             $this->dtgSportsCalendars->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -914,7 +965,9 @@
                 return;
             }
 
-            Application::redirect('menu_manager.php');
+            $this->userOptions();
+
+            Application::executeJavaScript("history.go(-1);");
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -934,8 +987,8 @@
             $this->dtgSportsCalendars->RowParamsCallback = [$this, "dtgSportsCalendars_GetRowParams"];
             $this->dtgSportsCalendars->SortColumnIndex = 7;
             //$this->dtgSportsCalendars->SortDirection = 1;
+            $this->dtgSportsCalendars->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
             $this->dtgSportsCalendars->UseAjax = true;
-            $this->dtgSportsCalendars->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum();
         }
 
         /**
@@ -983,6 +1036,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $intEventCalendarId = intval($params->ActionParameter);
             $objEventCalendar = SportsCalendar::load($intEventCalendarId);
             $intGroup = $objEventCalendar->getMenuContentGroupId();
@@ -1022,9 +1077,6 @@
             $this->dtgSportsCalendars->PaginatorAlternate->LabelForPrevious = t('Previous');
             $this->dtgSportsCalendars->PaginatorAlternate->LabelForNext = t('Next');
 
-            $this->dtgSportsCalendars->ItemsPerPage = 10;
-            $this->dtgSportsCalendars->SortColumnIndex = 0;
-            $this->dtgSportsCalendars->UseAjax = true;
             $this->addFilterActions();
         }
 
@@ -1044,9 +1096,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -1058,20 +1110,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -1079,11 +1132,14 @@
          * Handles the change event for the Items Per Page selection by the assigned user object.
          *
          * @param ActionParams $params The parameters associated with the action event.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgSportsCalendars->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgSportsCalendars->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgSportsCalendars->refresh();
         }
 
@@ -1097,7 +1153,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
             $this->addFilterActions();
@@ -1108,7 +1164,7 @@
             $this->lstYears->MinimumResultsForSearch = -1;
             $this->lstYears->Theme = 'web-vauu';
             $this->lstYears->Width = '100%';
-            $this->lstYears->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstYears->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstYears->addItem(t('- Select year -'), null, true);
             $this->lstYears->addItems($this->clearDuplicateYears());
 
@@ -1121,7 +1177,7 @@
             $this->lstGroups->MinimumResultsForSearch = -1;
             $this->lstGroups->Theme = 'web-vauu';
             $this->lstGroups->Width = '100%';
-            $this->lstGroups->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstGroups->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstGroups->addItem(t('- Select sports calendar group -'), null, true);
 
             $objGroups = SportsSettings::queryArray(
@@ -1148,7 +1204,7 @@
             $this->lstSportsAreas->MinimumResultsForSearch = -1;
             $this->lstSportsAreas->Theme = 'web-vauu';
             $this->lstSportsAreas->Width = '100%';
-            $this->lstSportsAreas->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstSportsAreas->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstSportsAreas->addItem(t('- Select sports area -'), null, true);
 
             foreach ($this->getUniqueSportsAreas() as $value) {
@@ -1165,7 +1221,7 @@
             $this->lstChanges->MinimumResultsForSearch = -1;
             $this->lstChanges->Theme = 'web-vauu';
             $this->lstChanges->Width = '100%';
-            $this->lstChanges->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstChanges->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstChanges->addItem(t('- Select change -'), null, true);
 
             $objChanges = SportsChanges::queryArray(
@@ -1370,10 +1426,12 @@
          * @param ActionParams $params Parameters associated with the action, providing context for the event.
          *
          * @return void
+         * @throws Caller
          */
         protected function lstYears_Change(ActionParams $params): void
         {
             $this->dtgSportsCalendars->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -1382,10 +1440,12 @@
          * @param ActionParams $params The parameters associated with the action event.
          *
          * @return void
+         * @throws Caller
          */
         protected function lstGroups_Change(ActionParams $params): void
         {
             $this->dtgSportsCalendars->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -1394,10 +1454,12 @@
          * @param ActionParams $params The parameters associated with the change event.
          *
          * @return void
+         * @throws Caller
          */
         protected function lstSportsAreas_Change(ActionParams $params): void
         {
             $this->dtgSportsCalendars->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -1407,10 +1469,12 @@
          * @param ActionParams $params The parameters associated with the action triggering this change.
          *
          * @return void
+         * @throws Caller
          */
         protected function lstChanges_Change(ActionParams $params): void
         {
             $this->dtgSportsCalendars->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -1421,6 +1485,7 @@
          *         information about the event triggered.
          *
          * @return void This method does not return a value.
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -1440,6 +1505,7 @@
             $this->lstChanges->refresh();
 
             $this->dtgSportsCalendars->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -1466,10 +1532,12 @@
          * Triggers an update when the filter settings are modified, causing the sports calendar data grid to refresh.
          *
          * @return void
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgSportsCalendars->refresh();
+            $this->userOptions();
         }
 
         /**

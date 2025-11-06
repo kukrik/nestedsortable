@@ -1,11 +1,14 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\Change;
@@ -32,8 +35,8 @@
     class OrganizingInstitutionManager extends Panel
     {
         protected Q\Plugin\Select2 $lstItemsPerPageByAssignedUserObject;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToastr1;
         protected Q\Plugin\Toastr $dlgToastr2;
@@ -58,8 +61,8 @@
         public Bs\Button $btnCancel;
 
         protected int $intId;
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
 
         protected string $strTemplate = 'OrganizingInstitutionManager.tpl.php';
 
@@ -97,7 +100,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 2;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createItemsPerPage();
@@ -110,6 +113,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and configures the data grid for organizing institutions.
@@ -125,7 +140,8 @@
             $this->dtgInstitution_MakeEditable();
             $this->dtgInstitution->RowParamsCallback = [$this, "dtgInstitution_GetRowParams"];
             $this->dtgInstitution->SortColumnIndex = 0;
-            $this->dtgInstitution->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum(); //__toString();
+            $this->dtgInstitution->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgInstitution->UseAjax = true;
         }
 
         /**
@@ -171,6 +187,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->intId = intval($params->ActionParameter);
             $objChanges = OrganizingInstitution::load($this->intId);
@@ -218,9 +236,6 @@
             $this->dtgInstitution->Paginator->LabelForPrevious = t('Previous');
             $this->dtgInstitution->Paginator->LabelForNext = t('Next');
 
-            $this->dtgInstitution->ItemsPerPage = 10;
-            $this->dtgInstitution->SortColumnIndex = 4;
-            $this->dtgInstitution->UseAjax = true;
             $this->addFilterActions();
         }
 
@@ -241,9 +256,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -257,20 +272,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -279,11 +295,14 @@
          * based on the selected value from the items per page list.
          *
          * @param ActionParams $params The parameters associated with the action event.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgInstitution->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgInstitution->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgInstitution->refresh();
         }
 
@@ -297,7 +316,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
 
@@ -320,6 +339,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -327,6 +347,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgInstitution->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -353,10 +374,12 @@
          * ensuring that the displayed data reflects the updated filter criteria.
          *
          * @return void
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgInstitution->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -592,6 +615,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnAddInstitution_Click(): void
         {
@@ -611,6 +635,8 @@
             $this->txtName->focus();
             $this->btnAddInstitution->Enabled = false;
             $this->dtgInstitution->addCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -641,7 +667,7 @@
                     $objCategoryNews = new OrganizingInstitution();
                     $objCategoryNews->setName(trim($this->txtName->Text));
                     $objCategoryNews->setStatus($this->lstStatus->SelectedValue);
-                    $objCategoryNews->setPostDate(Q\QDateTime::now());
+                    $objCategoryNews->setPostDate(QDateTime::now());
                     $objCategoryNews->save();
 
                     $this->dtgInstitution->refresh();
@@ -663,6 +689,8 @@
                 $this->txtName->focus();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -710,7 +738,7 @@
                     ($this->txtName->Text != $objChanges->getName() && $this->lstStatus->SelectedValue == $objChanges->getStatus())) {
                     $objChanges->setName(trim($this->txtName->Text));
                     $objChanges->setStatus($this->lstStatus->SelectedValue);
-                    $objChanges->setPostUpdateDate(Q\QDateTime::now());
+                    $objChanges->setPostUpdateDate(QDateTime::now());
                     $objChanges->save();
 
                     if (!empty($_SESSION['dtgInstitution_changes']) || !empty($_SESSION['dtgInstitution_group'])) {
@@ -726,6 +754,8 @@
                 $this->txtName->focus();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -747,6 +777,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             if (!empty($_SESSION['dtgInstitution_changes']) || !empty($_SESSION['dtgInstitution_group'])) {
                 $this->btnGoToEvents->Display = true;
@@ -780,6 +812,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $objChanges = OrganizingInstitution::loadById($this->intId);
 
@@ -827,6 +861,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnCancel_Click(ActionParams $params): void
         {
@@ -842,6 +877,8 @@
 
             $this->displayHelper();
             $this->txtName->Text = '';
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -885,6 +922,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             if (!empty($_SESSION['dtgInstitution_changes']) || !empty($_SESSION['dtgInstitution_group'])) {
 

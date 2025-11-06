@@ -1,44 +1,48 @@
 <?php
-require('qcubed.inc.php');
+    require('qcubed.inc.php');
 
-require ('classes/RecordsPanel.class.php');
-require('tables/AthletesTable.php');
+    require ('classes/RecordsPanel.class.php');
+    require('tables/AthletesTable.php');
 
-require ('classes/SportsAreasPanel.class.php');
-require ('tables/SportAreasTable.php');
+    require ('classes/SportsAreasPanel.class.php');
+    require ('tables/SportAreasTable.php');
 
 
-error_reporting(E_ALL); // Error engine - always ON!
-ini_set('display_errors', TRUE); // Error display - OFF in production env or real server
-ini_set('log_errors', TRUE); // Error logging
+    error_reporting(E_ALL); // Error engine - always ON!
+    ini_set('display_errors', TRUE); // Error display - OFF in production env or real server
+    ini_set('log_errors', TRUE); // Error logging
 
-use QCubed as Q;
-use QCubed\Bootstrap as Bs;
-use QCubed\Folder;
-use QCubed\Project\Control\ControlBase;
-use QCubed\Project\Control\FormBase as Form;
-use QCubed\Project\Application;
+    use QCubed as Q;
+    use QCubed\Exception\Caller;
+    use QCubed\Project\Control\FormBase as Form;
 
-/**
- * Class SampleForm
- */
-class SampleForm extends Form
-{
-    protected $nav;
-
-    protected function formCreate()
+    /**
+     * A class that represents a form for managing records. This form extends the base Form class
+     * and utilizes a tab navigation control to organize its content.
+     */
+    class RecordsForm extends Form
     {
-        parent::formCreate();
+        protected Q\Plugin\Control\Tabs $nav;
 
-        $this->nav = new Q\Plugin\Tabs($this);
-        $this->nav->addCssClass('tabbable tabbable-custom');
+        /**
+         * Initializes the form and its components.
+         *
+         * @return void
+         * @throws Caller
+         */
+        protected function formCreate(): void
+        {
+            parent::formCreate();
 
-        $page = new RecordsPanel($this->nav);
-        $page->Name = t('Records');
+            $this->nav = new Q\Plugin\Control\Tabs($this);
+            $this->nav->addCssClass('tabbable tabbable-custom');
 
-       /* $page = new SportsAreasPanel($this->nav);
-        $page->Name = t('Sports areas');*/
+            $page = new RecordsPanel($this->nav);
+            $page->Name = t('Records');
 
+            /* $page = new SportsAreasPanel($this->nav);
+             $page->Name = t('Sports areas');*/
+
+        }
     }
-}
-SampleForm::run('SampleForm');
+    RecordsForm::run('RecordsForm');

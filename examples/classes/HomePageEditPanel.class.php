@@ -11,6 +11,7 @@
     use QCubed\Event\EscapeKey;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Action\ActionParams;
     use QCubed\Project\Application;
@@ -45,6 +46,9 @@
         public Bs\Button $btnCancel;
 
         protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected object $objMenuContent;
         protected object $objFrontendLinks;
 
@@ -69,6 +73,21 @@
                 throw $objExc;
             }
 
+            /**
+             * NOTE: if the user_id is stored in session (e.g., if a User is logged in), as well, for example,
+             * checking against user session etc.
+             *
+             * Must have to get something like here $this->objUser->getUserId(logged user session);
+             * or something similar...
+             *
+             * Options to do this are left to the developer.
+             **/
+
+            // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
+            // For example, John Doe is a logged user with his session
+
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
+            $this->objUser = User::load($this->intLoggedUserId);
 
             $this->intId = Application::instance()->context()->queryStringItem('id');
             $this->objMenuContent = MenuContent::load($this->intId);
@@ -81,6 +100,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and configures input fields and labels for the menu text and its associated data.
@@ -178,6 +209,7 @@
          * and a close button.
          *
          * @return void This method does not return any value.
+         * @throws Caller
          */
         public function createModals(): void
         {
@@ -269,6 +301,8 @@
                 $this->txtMenuText->focus();
                 $this->dlgToastr3->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -316,6 +350,8 @@
                 $this->txtMenuText->focus();
                 $this->dlgToastr3->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -336,6 +372,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->redirectToListPage();
         }

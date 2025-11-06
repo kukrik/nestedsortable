@@ -3,6 +3,7 @@
 namespace QCubed\Plugin\Control;
 
 use Exception;
+use finfo;
 
 /**
  * Class CroppieHandler
@@ -151,12 +152,12 @@ class CroppieHandler
             $this->options['RelativePath'] = $_POST["relativePath"];
             $this->options['FolderId'] = $_POST["folderId"];
 
-            $path = $_POST["relativePath"];
+            //$path = $_POST["relativePath"];
 
             $associatedParameters = array_combine($this->options['TempFolders'], $this->options['ResizeDimensions']);
 
             // Decode the base64 image data
-            list($type, $this->options['Data']) = explode(';', $this->options['Data']);
+            list(, $this->options['Data']) = explode(';', $this->options['Data']);
             list(, $this->options['Data']) = explode(',', $this->options['Data']);
             $this->options['Data'] = base64_decode($this->options['Data']);
 

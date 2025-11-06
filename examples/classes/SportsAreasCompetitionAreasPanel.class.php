@@ -1,12 +1,15 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Event\Input;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\CellClick;
@@ -35,8 +38,8 @@
         protected ?object $objSportsCompetitionAreasCondition = null;
         protected ?array $objSportsCompetitionAreasClauses = null;
         protected Q\Plugin\Select2 $lstItemsPerPageByAssignedUserObject;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToastr1;
         protected Q\Plugin\Toastr $dlgToastr2;
@@ -71,8 +74,10 @@
         public Bs\Button $btnCancel;
 
         protected int $intId;
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected int $intClick;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected int $selectedSportId;
 
         protected string $strTemplate = 'SportsAreasCompetitionAreasPanel.tpl.php';
@@ -110,12 +115,11 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId= 2;
+            $this->intLoggedUserId= $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createTable();
             $this->dtgAreas_makeEditable();
-            $this->createPaginators();
             $this->createItemsPerPage();
             $this->createFilter();
 
@@ -126,6 +130,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and configures a data table for displaying sports areas and competition areas.
@@ -161,11 +177,14 @@
             $col->Format = 'DD.MM.YYYY hhhh:mm';
             //$col->CellStyler->Width = '15%';
 
-            $this->dtgAreas->UseAjax = true;
-            $this->dtgAreas->SortColumnIndex = 1;
-            $this->dtgAreas->SortDirection = 1;
             $this->dtgAreas->setDataBinder('dtgAreas_Bind', $this);
             $this->dtgAreas->RowParamsCallback = [$this, 'dtgAreas_GetRowParams'];
+
+            $this->createPaginators();
+            $this->dtgAreas->SortColumnIndex = 1;
+            $this->dtgAreas->SortDirection = 1;
+            $this->dtgAreas->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgAreas->UseAjax = true;
         }
 
         /**
@@ -186,9 +205,11 @@
         /**
          * Handles the click event for the area data grid, loading relevant data and updating the display.
          *
-         * @param ActionParams $params Contains parameters related to the action, such as the action parameter used to identify the selected area.
+         * @param ActionParams $params Contains parameters related to the action, such as the action parameter used to
+         *     identify the selected area.
          *
-         * @return void This method does not return a value; it updates the UI and internal properties based on the selected area.
+         * @return void This method does not return a value; it updates the UI and internal properties based on the
+         *     selected area.
          * @throws Caller
          * @throws InvalidCast
          * @throws RandomException
@@ -201,13 +222,15 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->intId = intval($params->ActionParameter);
+            $this->intClick = $this->intId;
             $objAreas = SportsAreasCompetitionAreas::load($this->intId);
 
             $this->txtSportsArea->Text = SportsAreas::loadById($objAreas->getSportsAreasId())->getName();
             $this->txtCompetitionArea->Text = SportsCompetitionAreas::loadById($objAreas->getSportsCompetitionAreasId())->getName();
 
-            $this->dtgAreas->addCssClass('disabled');
             $this->txtSportsArea->Display = true;
             $this->txtCompetitionArea->Display = true;
             $this->btnCancel->Display = true;
@@ -217,15 +240,19 @@
             } else {
                 $this->btnDelete->Display = false;
             }
+
+            $this->disableInputs();
         }
 
         /**
          * Generates and returns an array of parameters for a row in the Areas data grid.
          *
-         * @param object $objRowObject The object representing the current row's data, typically an entity or model instance.
+         * @param object $objRowObject The object representing the current row's data, typically an entity or model
+         *     instance.
          * @param int $intRowIndex The zero-based index of the current row in the data grid.
          *
-         * @return array An associative array of parameters for the row, where keys represent parameter names and values represent their corresponding values.
+         * @return array An associative array of parameters for the row, where keys represent parameter names and
+         *     values represent their corresponding values.
          */
         public function dtgAreas_GetRowParams(object $objRowObject, int $intRowIndex): array
         {
@@ -245,7 +272,6 @@
             $this->dtgAreas->Paginator = new Bs\Paginator($this);
             $this->dtgAreas->Paginator->LabelForPrevious = t('Previous');
             $this->dtgAreas->Paginator->LabelForNext = t('Next');
-            $this->dtgAreas->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum();
             $this->dtgAreas->Paginator->Display = false;
         }
 
@@ -266,10 +292,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
-            $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->Display = false;
         }
 
@@ -281,20 +306,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -302,11 +328,14 @@
          * Updates the items per page value for the associated user object and refreshes the data grid.
          *
          * @param ActionParams $params The parameters associated with the triggered action.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgAreas->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgAreas->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgAreas->refresh();
         }
 
@@ -320,7 +349,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search competition area...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
             $this->txtFilter->Display = false;
@@ -346,6 +375,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -353,6 +383,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgAreas->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -379,10 +410,12 @@
          * Refreshes the data grid when the filter is changed.
          *
          * @return void
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgAreas->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -544,7 +577,7 @@
             $this->lstSportsAreas->MinimumResultsForSearch = -1;
             $this->lstSportsAreas->Theme = 'web-vauu';
             $this->lstSportsAreas->Width = '100%';
-            $this->lstSportsAreas->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstSportsAreas->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstSportsAreas->addItem(t('- Select sport area -'), null, true);
             $this->lstSportsAreas->addItems($this->lstSportsAreas_GetItems());
 
@@ -557,15 +590,15 @@
             }
 
             $this->lstSportsAreas->addAction(new Change(), new AjaxControl($this, 'lstSportsAreas_Change'));
-            $this->lstSportsAreas->addAction(new Change(), new AjaxControl($this, 'filterChanged'));
 
             $this->lstSportsCompetitionAreas = new Q\Plugin\Select2($this);
             $this->lstSportsCompetitionAreas->MinimumResultsForSearch = -1;
             $this->lstSportsCompetitionAreas->Theme = 'web-vauu';
             $this->lstSportsCompetitionAreas->Width = '100%';
-            $this->lstSportsCompetitionAreas->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstSportsCompetitionAreas->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstSportsCompetitionAreas->addItem(t('- Select competition area -'), null, true);
             $this->lstSportsCompetitionAreas->addItems($this->lstSportsCompetitionAreas_GetItems());
+            $this->lstSportsCompetitionAreas->addAction(new Change(), new AjaxControl($this, 'lstSportsCompetitionAreas_Change'));
 
             $countCompetitionAreas = SportsCompetitionAreas::queryCount(QQ::all());
 
@@ -628,7 +661,6 @@
             $this->btnSaveNew->Text = t('Save');
             $this->btnSaveNew->CssClass = 'btn btn-orange';
             $this->btnSaveNew->addWrapperCssClass('center-button');
-            $this->btnSaveNew->PrimaryButton = true;
             $this->btnSaveNew->CausesValidation = true;
             $this->btnSaveNew->setCssStyle('float', 'left');
             $this->btnSaveNew->setCssStyle('margin-right', '10px');
@@ -793,11 +825,14 @@
             $this->hideTableControls();
             $this->dtgAreas->refresh();
 
+            $this->lblInfo->Display = true; // Please select a sports area!
+            $this->lblWarning->Display = false; // The selected sport is not related to any competition!
             $this->dlgToastr3->notify();
         }
 
         /**
-         * Handles the click event for the "Add Areas" button, enabling UI elements and executing client-side JavaScript.
+         * Handles the click event for the "Add Areas" button, enabling UI elements and executing client-side
+         * JavaScript.
          *
          * @param ActionParams $params Parameters for the action triggered by the click event.
          *
@@ -813,14 +848,27 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->btnAddAreas->Enabled = false;
             $this->dtgAreas->removeCssClass('disabled');
+
+            if ($this->lstSportsAreas->SelectedValue === null) {
+                $this->lstSportsCompetitionAreas->Enabled = false;
+            } else {
+                $this->lstSportsCompetitionAreas->Enabled = true;
+            }
+
+            if ($this->lstSportsCompetitionAreas->SelectedValue === null) {
+                $this->btnSaveNew->Enabled = false;
+            }
 
             Application::executeJavaScript("$('.js-mapping-activities').removeClass('hidden');");
         }
 
         /**
-         * Handles the change event for the sports areas dropdown. Updates the related UI controls based on the selected value.
+         * Handles the change event for the sports areas dropdown. Updates the related UI controls based on the
+         * selected value.
          *
          * @param ActionParams $params Parameters associated with the event action.
          *
@@ -840,30 +888,50 @@
             $this->txtFilter->Text = ''; // Always have to empty it, no matter what happens...
 
             if ($this->lstSportsAreas->SelectedValue !== null) {
-                $objSportsAreas = SportsAreas::loadById($this->lstSportsAreas->SelectedValue);
-
+                $this->lblInfo->Display = false; // Please select a sports area!
                 $this->lstSportsCompetitionAreas->Enabled = true;
 
-                $this->lblInfo->Display = false;
-                if ($objSportsAreas->getIsLocked() == 2) {
-                    // Please select a sports area!
-                    $this->lblWarning->Display = false; // The selected sport is not related to any competition!
+                $countLockedSportsAreas = SportsAreasCompetitionAreas::countBySportsAreasId($this->lstSportsAreas->SelectedValue);
 
+                if ($countLockedSportsAreas > 0) {
                     $this->showTableControls();
                 } else {
-                    // Please select a sports area!
-                    $this->lblWarning->Display = true; // The selected sport is not related to any competition!
-
                     $this->hideTableControls();
+                    $this->lblWarning->Display = true; // The selected sport is not related to any competition!
+                    $this->lblInfo->Display = false; // Please select a sports area!
                 }
             } else {
                 $this->lstSportsCompetitionAreas->Enabled = false;
-
                 $this->lblInfo->Display = true; // Please select a sports area!
                 $this->lblWarning->Display = false; // The selected sport is not related to any competition!
-
                 $this->hideTableControls();
             }
+
+            $this->userOptions();
+        }
+
+        /**
+         * Handles changes to the sports competition areas dropdown and updates the state based on the selected value.
+         *
+         * @param ActionParams $params Parameters associated with the user's action triggering this method.
+         *
+         * @return void
+         * @throws RandomException
+         * @throws Caller
+         */
+        protected function lstSportsCompetitionAreas_Change(ActionParams $params): void
+        {
+            if (!Application::verifyCsrfToken()) {
+                $this->dlgModal5->showDialogBox();
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                return;
+            }
+
+            if ($this->lstSportsCompetitionAreas->SelectedValue !== null) {
+                $this->btnSaveNew->Enabled = true;
+            }
+
+            $this->userOptions();
         }
 
         /**
@@ -890,38 +958,29 @@
                 return;
             }
 
-            if ($this->lstSportsCompetitionAreas->SelectedValue === null) {
-                $this->dlgToastr4->notify();
-                return;
-            }
-
             if (SportsAreasCompetitionAreas::pairExists($this->lstSportsAreas->SelectedValue, $this->lstSportsCompetitionAreas->SelectedValue)) {
                 $this->dlgToastr2->notify();
             } else {
                 $objSportsAreasCompetitionAreas = new SportsAreasCompetitionAreas();
                 $objSportsAreasCompetitionAreas->setSportsAreasId($this->lstSportsAreas->SelectedValue);
                 $objSportsAreasCompetitionAreas->setSportsCompetitionAreasId($this->lstSportsCompetitionAreas->SelectedValue);
-                $objSportsAreasCompetitionAreas->setPostDate(Q\QDateTime::Now());
+                $objSportsAreasCompetitionAreas->setPostDate(QDateTime::now());
                 $objSportsAreasCompetitionAreas->save();
 
-                $objSportsAreas = SportsAreas::loadById($this->lstSportsAreas->SelectedValue);
-
-                if ($objSportsAreas->getIsLocked() !== 1) {
-                    $objSportsAreas->setIsLocked(1);
-                    $objSportsAreas->save();
-                }
-
                 $objCompetitionAreas = SportsCompetitionAreas::loadById($this->lstSportsCompetitionAreas->SelectedValue);
-                $objCompetitionAreas->setIsLocked(1);
+                $objCompetitionAreas->setIsLocked(2);
                 $objCompetitionAreas->save();
 
-                $objSelectedAreas = SportsAreasCompetitionAreas::loadById($objSportsAreasCompetitionAreas->Id);
-                $countLockedSportsAreas = SportsAreasCompetitionAreas::countBySportsAreasId($objSelectedAreas->SportsAreasId);
+                SportsAreas::updateAllIsLockStates();
+
+                $countLockedSportsAreas = SportsAreasCompetitionAreas::countBySportsAreasId($this->lstSportsAreas->SelectedValue);
 
                 if ($countLockedSportsAreas > 0) {
-                    $this->lblWarning->Display = false;
+                    $this->showTableControls();
+                    $this->lblWarning->Display = false; // The selected sport is not related to any competition!
                 } else {
-                    $this->lblWarning->Display = true;
+                    $this->hideTableControls();
+                    $this->lblWarning->Display = true; // The selected sport is not related to any competition!
                 }
 
                 $this->hideSportsCompetitionAreasDropDown();
@@ -930,6 +989,8 @@
                 $this->dtgAreas->refresh();
                 $this->showTableControls();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -951,12 +1012,14 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->btnAddAreas->Enabled = true;
             $this->lblInfo->Display = true;
 
             $this->hideDropdowns();
-            $this->dtgAreas->removeCssClass('disabled');
             $this->hideTableControls();
+            $this->enableInputs();
 
             Application::executeJavaScript("$('.js-mapping-activities').addClass('hidden');");
         }
@@ -979,13 +1042,16 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->dlgModal1->showDialogBox();
         }
 
         /**
          * Handles the click event for deleting a selected item associated with sports areas and competition areas.
          *
-         * @param ActionParams $params The parameters associated with the click action, including the action's context and data.
+         * @param ActionParams $params The parameters associated with the click action, including the action's context
+         *     and data.
          *
          * @return void This method does not return any value.
          * @throws UndefinedPrimaryKey
@@ -1001,15 +1067,17 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->dlgModal1->hideDialogBox();
 
             if ($params->ActionParameter == "pass") {
 
-                $objSelectedAreas = SportsAreasCompetitionAreas::loadById($this->intId);
+                $objSelectedAreas = SportsAreasCompetitionAreas::loadByIdFromSportsAreasCompetitionAreas($this->intId);
                 $countLockedSportsAreas = SportsAreasCompetitionAreas::countBySportsAreasId($objSelectedAreas->SportsAreasId);
 
                 $objCompetitionAreas = SportsCompetitionAreas::loadById($objSelectedAreas->SportsCompetitionAreasId);
-                $objCompetitionAreas->setIsLocked(0);
+                $objCompetitionAreas->setIsLocked(1);
                 $objCompetitionAreas->save();
 
                 $objSelectedAreas->delete();
@@ -1029,6 +1097,8 @@
                 $this->hideAreasButtons();
                 $this->btnAddAreas->Enabled = true;
             }
+
+            $this->enableInputs();
         }
 
         /**
@@ -1057,6 +1127,7 @@
          *
          * @return void This method does not return a value.
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnCancel_Click(ActionParams $params): void
         {
@@ -1066,6 +1137,9 @@
                 return;
             }
 
+            $this->userOptions();
+
+            $this->enableInputs();
             $this->hideAreasButtons();
         }
 
@@ -1154,5 +1228,41 @@
             $this->txtCompetitionArea->Display = false;
             $this->btnDelete->Display = false;
             $this->btnCancel->Display = false;
+        }
+
+        /**
+         * Enables input controls and buttons within the form and re-enables interaction with the data grid.
+         *
+         * @return void This method does not return any value.
+         */
+        public function enableInputs(): void
+        {
+            $this->lstSportsAreas->Enabled = true;
+            $this->lstSportsCompetitionAreas->Enabled = true;
+            $this->btnSaveNew->Enabled = true;
+            $this->btnCancelNew->Enabled = true;
+            $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
+
+            $this->dtgAreas->removeCssClass('disabled');
+        }
+
+        /**
+         * Disables input fields and controls in the current interface, including dropdowns, buttons, text fields, and grids.
+         *
+         * @return void
+         */
+        public function disableInputs(): void
+        {
+            $this->lstSportsAreas->Enabled = false;
+            $this->lstSportsCompetitionAreas->Enabled = false;
+            $this->btnSaveNew->Enabled = false;
+            $this->btnCancelNew->Enabled = false;
+            $this->txtFilter->Enabled = false;
+            $this->btnClearFilters->Enabled = false;
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = false;
+
+            $this->dtgAreas->addCssClass('disabled');
         }
     }

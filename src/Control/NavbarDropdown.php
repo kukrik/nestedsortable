@@ -4,6 +4,7 @@
 
     use QCubed\Bootstrap\NavbarItem;
     use QCubed\Control\ListItemStyle;
+    use QCubed\Exception\Caller;
     use QCubed\QString;
 
     /**
@@ -17,6 +18,8 @@
          * @param string $strName
          * @param null|string $strValue
          * @param string|null $strAnchor
+         *
+         * @throws Caller
          */
         public function __construct(string $strName, ?string $strValue = null, ?string $strAnchor = null)
         {

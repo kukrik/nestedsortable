@@ -5,6 +5,7 @@
     use QCubed\Bootstrap as Bs;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Event\Click;
@@ -39,6 +40,7 @@
         protected Q\Plugin\Toastr $dlgToastr10;
         protected Q\Plugin\Toastr $dlgToastr11;
         protected Q\Plugin\Toastr $dlgToastr12;
+        protected Q\Plugin\Toastr $dlgToastr13;
 
         public Bs\Modal $dlgModal1;
         public Bs\Modal $dlgModal2;
@@ -78,11 +80,13 @@
         public Bs\Label $txtUsersAsEditors;
 
         public AgeCategoriesTable $dtgAgeCategories;
+        public Bs\Button $btnRefresh;
 
         protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected bool $blnEditMode = true;
-        protected object $objUser;
-        protected int $intLoggedUserId;
         protected ?object $objAgeCategory = null;
         protected array $errors = []; // Array for tracking errors
 
@@ -120,7 +124,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 3;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->dtgAgeCategories_Create();
@@ -129,16 +133,21 @@
             $this->createButtons();
             $this->createToastr();
             $this->createModals();
-
-            //$test = AgeCategories::loadAll();
-
-//            print '<pre>';
-//            print_r($test);
-//            print '</pre>';
-
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and configures the AgeCategories data grid.
@@ -200,6 +209,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->intId = intval($params->ActionParameter);
             $this->objAgeCategory = AgeCategories::load($this->intId);
@@ -402,6 +413,15 @@
          */
         public function createButtons(): void
         {
+            $this->btnRefresh = new Bs\Button($this);
+            $this->btnRefresh->Tip = true;
+            $this->btnRefresh->ToolTip = t('Refresh tables');
+            $this->btnRefresh->Glyph = 'fa fa-refresh';
+            $this->btnRefresh->CssClass = 'btn btn-darkblue';
+            $this->btnRefresh->CausesValidation = false;
+            $this->btnRefresh->setCssStyle('margin-left', '15px');
+            $this->btnRefresh->addAction(new Click(), new AjaxControl($this, 'btnRefresh_Click'));
+
             $this->btnAddNewAgeCategory = new Bs\Button($this);
             $this->btnAddNewAgeCategory->Text = t('Add a new age group');
             $this->btnAddNewAgeCategory->CssClass = 'btn btn-orange';
@@ -514,6 +534,12 @@
             $this->dlgToastr12->PositionClass = Q\Plugin\ToastrBase::POSITION_TOP_CENTER;
             $this->dlgToastr12->Message = t('Updates to some records for this age group were discarded, and the age group has been restored!');
             $this->dlgToastr12->ProgressBar = true;
+
+            $this->dlgToastr13 = new Q\Plugin\Toastr($this);
+            $this->dlgToastr13->AlertType = Q\Plugin\ToastrBase::TYPE_SUCCESS;
+            $this->dlgToastr13->PositionClass = Q\Plugin\ToastrBase::POSITION_TOP_CENTER;
+            $this->dlgToastr13->Message = t('The table has been updated!');
+            $this->dlgToastr13->ProgressBar = true;
         }
 
         /**
@@ -590,6 +616,28 @@
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         /**
+         * Handles the click event for the refresh button and performs the necessary actions.
+         *
+         * @param ActionParams $params The parameters associated with the triggered action.
+         *
+         * @return void
+         * @throws Caller
+         * @throws RandomException
+         */
+        protected function btnRefresh_Click(ActionParams $params): void
+        {
+            if (!Application::verifyCsrfToken()) {
+                $this->dlgModal5->showDialogBox();
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                return;
+            }
+
+            $this->dtgAgeCategories->refresh();
+
+            $this->dlgToastr13->notify();
+        }
+
+        /**
          * Handles the click event for the "Add New Age Category" button, initializing the form for adding a
          * new age category and updating the user interface appropriately.
          *
@@ -606,6 +654,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             Application::executeJavaScript("
                 $('.setting-wrapper').removeClass('hidden');
@@ -665,6 +715,8 @@
 
                 $this->updateAndValidateAgeGroups($this->objAgeCategory);
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -763,7 +815,7 @@
                     if ($this->txtClassName->Text && $this->txtMinAge->Text && !AgeCategories::hasExistingNullMaxAge()) {
                         $objAgeCategory = new AgeCategories();
                         $this->saveInputs($objAgeCategory);
-                        $objAgeCategory->setPostDate(Q\QDateTime::now());
+                        $objAgeCategory->setPostDate(QDateTime::now());
                         $objAgeCategory->setAssignedByUser($this->intLoggedUserId);
                         $objAgeCategory->setAuthor($objAgeCategory->getAssignedByUserObject());
                         $objAgeCategory->save();
@@ -823,6 +875,8 @@
             }
 
             unset($this->errors);
+
+            $this->userOptions();
         }
 
         /**
@@ -846,6 +900,8 @@
                 $('.setting-wrapper').addClass('hidden');
                 $('.form-actions-wrapper').addClass('hidden')
             ");
+
+            $this->userOptions();
 
             $this->hideUserWindow();
 
@@ -979,7 +1035,7 @@
          */
         protected function updateAndValidateAgeGroups(object $objAgeCategory): void
         {
-            $objAgeCategory->setPostUpdateDate(Q\QDateTime::now());
+            $objAgeCategory->setPostUpdateDate(QDateTime::now());
             $objAgeCategory->setAssignedEditorsNameById($this->intLoggedUserId);
             $objAgeCategory->save();
 
@@ -1007,6 +1063,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             if ($this->objAgeCategory->getIsLocked() == 1) {
                 $this->dlgModal1->showDialogBox();
@@ -1038,6 +1096,8 @@
             $this->dtgAgeCategories->removeCssClass('disabled');
 
             $this->refreshDisplay($this->objAgeCategory->getId());
+
+            $this->userOptions();
         }
 
         /**

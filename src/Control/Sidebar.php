@@ -97,6 +97,7 @@
          *     generated.
          *
          * @return void
+         * @throws \Exception
          * @throws Caller
          */
         public function __construct(ControlBase|FormBase $objParentObject, ?string $strControlId = null)
@@ -404,6 +405,7 @@
          * and removes it from any previously active items.
          *
          * @return void
+         * @throws Caller
          */
         public function makeJqWidget(): void
         {

@@ -75,6 +75,28 @@
             return $objResult?->Id;
         }
 
+        /**
+         * Loads a single SportsAreasCompetitionAreas object based on the SportsAreasId.
+         *
+         * @param int $sportsAreasId The ID of the sports area to retrieve the competition area for.
+         * @param mixed|null $objOptionalClauses Additional optional clauses for the query.
+         *
+         * @return SportsAreasCompetitionAreas|null The loaded SportsAreasCompetitionAreas object if found, or null if not found.
+         * @throws Caller If an exception occurs during the query execution.
+         */
+        public static function loadByIdFromSportsAreasCompetitionAreas(int $sportsAreasId, mixed $objOptionalClauses = null): ?SportsAreasCompetitionAreas
+        {
+            // Call SportsAreasCompetitionAreas::QuerySingle to perform the loadByIdFromSportsAreasCompetitionAreas query
+            try {
+                return SportsAreasCompetitionAreas::querySingle(
+                    QQ::Equal(QQN::SportsAreasCompetitionAreas()->Id, $sportsAreasId),
+                    $objOptionalClauses);
+            } catch (Caller $objExc) {
+                $objExc->incrementOffset();
+                throw $objExc;
+            }
+        }
+
         // NOTE: Remember that when introducing a new custom function,
         // you must specify types for the function parameters as well as for the function return type!
 

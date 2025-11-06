@@ -3,8 +3,10 @@
     use QCubed as Q;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Event\Click;
@@ -33,8 +35,8 @@
     class LinkCategoriesManager extends Panel
     {
         protected ?object $lstItemsPerPageByAssignedUserObject = null;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToastr1;
         protected Q\Plugin\Toastr $dlgToastr2;
@@ -59,8 +61,9 @@
         public Bs\Button $btnCancel;
 
         protected int $intId;
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected array $objCategoryIds = [];
         protected ?string $oldName = '';
 
@@ -101,7 +104,7 @@
             // $objUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 2;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createItemsPerPage();
@@ -115,6 +118,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and configures the data grid for displaying link categories.
@@ -133,7 +148,8 @@
             $this->dtgLinkCategories_MakeEditable();
             $this->dtgLinkCategories->RowParamsCallback = [$this, "dtgLinkCategories_GetRowParams"];
             $this->dtgLinkCategories->SortColumnIndex = 0;
-            $this->dtgLinkCategories->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum(); //__toString();
+            $this->dtgLinkCategories->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgLinkCategories->UseAjax = true;
         }
 
         /**
@@ -183,6 +199,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->intId = intval($params->ActionParameter);
             $objCategories = LinksCategory::load($this->intId);
 
@@ -192,14 +210,17 @@
             $this->txtCategory->focus();
             $this->lstStatus->SelectedValue = $objCategories->Status ?? null;
 
-            $this->dtgLinkCategories->addCssClass('disabled');
             $this->btnAddCategory->Enabled = false;
             $this->btnGoToLinks->Display = false;
-            $this->txtCategory->Display = true;
-            $this->lstStatus->Display = true;
-            $this->btnSave->Display = true;
-            $this->btnDelete->Display = true;
-            $this->btnCancel->Display = true;
+
+            $this->disableInputs();
+
+            if (Links::countByCategoryId($this->intId) > 0) {
+                $this->dlgModal3->showDialogBox();
+                $this->btnDelete->Enabled = false;
+            } else {
+                $this->btnDelete->Enabled = true;
+            }
         }
 
         /**
@@ -230,9 +251,6 @@
             $this->dtgLinkCategories->Paginator->LabelForPrevious = t('Previous');
             $this->dtgLinkCategories->Paginator->LabelForNext = t('Next');
 
-            $this->dtgLinkCategories->ItemsPerPage = 10;
-            $this->dtgLinkCategories->SortColumnIndex = 4;
-            $this->dtgLinkCategories->UseAjax = true;
             $this->addFilterActions();
         }
 
@@ -252,8 +270,8 @@
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
             $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -269,20 +287,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -290,11 +309,14 @@
          * Updates the items per page for a data grid based on the user's selection and refreshes the grid.
          *
          * @param ActionParams $params The parameters passed from the action triggering the change in items per a page.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgLinkCategories->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgLinkCategories->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgLinkCategories->refresh();
         }
 
@@ -308,7 +330,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
 
@@ -331,6 +353,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -338,6 +361,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgLinkCategories->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -366,10 +390,12 @@
          * Refreshes the data grid for news changes when the filter criteria is modified.
          *
          * @return void
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgLinkCategories->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -474,7 +500,7 @@
             $this->txtCategory = new Bs\TextBox($this);
             $this->txtCategory->Placeholder = t('New category');
             $this->txtCategory->ActionParameter = $this->txtCategory->ControlId;
-            $this->txtCategory->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtCategory->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
             $this->txtCategory->setHtmlAttribute('autocomplete', 'off');
             $this->txtCategory->setCssStyle('float', 'left');
             $this->txtCategory->setCssStyle('margin-right', '10px');
@@ -630,16 +656,22 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->btnGoToLinks->Display = false;
             $this->txtCategory->Display = true;
-            $this->lstStatus->Display = true;
             $this->lstStatus->SelectedValue = 2;
-            $this->btnSaveCategory->Display = true;
-            $this->btnCancel->Display = true;
             $this->txtCategory->Text = '';
             $this->txtCategory->focus();
-            $this->btnAddCategory->Enabled = false;
-            $this->dtgLinkCategories->addCssClass('disabled');
+
+            $this->disableInputs();
+
+            if (!$this->txtCategory->Text) {
+                $this->btnDelete->Display = false;
+            }
+
+            $this->btnSave->Display = false;
+            $this->btnSaveCategory->Display = true;
         }
 
         /**
@@ -668,17 +700,14 @@
                     $objCategoryNews = new LinksCategory();
                     $objCategoryNews->setTitle(trim($this->txtCategory->Text));
                     $objCategoryNews->setStatus($this->lstStatus->SelectedValue);
-                    $objCategoryNews->setPostDate(Q\QDateTime::now());
+                    $objCategoryNews->setPostDate(QDateTime::now());
                     $objCategoryNews->save();
+
+                    $this->btnAddCategory->Enabled = true;
+                    $this->enableInputs();
 
                     $this->dtgLinkCategories->refresh();
 
-                    $this->txtCategory->Display = false;
-                    $this->lstStatus->Display = false;
-                    $this->btnSaveCategory->Display = false;
-                    $this->btnCancel->Display = false;
-                    $this->btnAddCategory->Enabled = true;
-                    $this->dtgLinkCategories->removeCssClass('disabled');
                     $this->txtCategory->Text = '';
                     $this->dlgToastr1->notify();
                 } else {
@@ -691,6 +720,8 @@
                 $this->txtCategory->focus();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -728,17 +759,19 @@
 
                 if (Links::countByCategoryId($this->intId) > 0 && $this->lstStatus->SelectedValue == 2) {
                     $this->lstStatus->SelectedValue = 1;
-                    $this->helperDisplay();
                     $this->dlgModal2->showDialogBox();
 
                 } else if (Links::countByCategoryId($this->intId) === 0 && $this->txtCategory->Text == $objCategories->getTitle() && $this->lstStatus->SelectedValue !== $objCategories->getStatus()) {
                     $objCategories->setTitle(trim($this->txtCategory->Text));
                     $objCategories->setStatus($this->lstStatus->SelectedValue);
-                    $objCategories->setPostUpdateDate(Q\QDateTime::now());
+                    $objCategories->setPostUpdateDate(QDateTime::now());
                     $objCategories->save();
 
+                    $this->btnAddCategory->Enabled = true;
+                    $this->enableInputs();
+
                     $this->dtgLinkCategories->refresh();
-                    $this->helperDisplay();
+
                     $this->dlgToastr1->notify();
                 }
             } else {
@@ -746,6 +779,8 @@
                 $this->txtCategory->focus();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -774,10 +809,12 @@
 
             if (Links::countByCategoryId($this->intId) > 0) {
                 $this->dlgModal3->showDialogBox();
-                $this->helperDisplay();
+                $this->disableInputs();
             } else {
                 $this->dlgModal1->showDialogBox();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -800,9 +837,12 @@
 
             $this->dtgLinkCategories->refresh();
 
-            $this->helperDisplay();
+            $this->btnAddCategory->Enabled = true;
+            $this->enableInputs();
 
             $this->dlgModal1->hideDialogBox();
+
+            $this->userOptions();
         }
 
         /**
@@ -814,6 +854,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function hideItem_Click(ActionParams $params): void
         {
@@ -823,7 +864,10 @@
                 return;
             }
 
-            $this->helperDisplay();
+            $this->userOptions();
+
+            $this->btnAddCategory->Enabled = true;
+            $this->enableInputs();
         }
 
         /**
@@ -844,32 +888,67 @@
                 return;
             }
 
+            $this->userOptions();
+
             if (!empty($_SESSION['links']) || !empty($_SESSION['group'])) {
                 $this->btnGoToLinks->Display = true;
             }
 
-            $this->helperDisplay();
+            $this->btnAddCategory->Enabled = true;
+            $this->enableInputs();
             $this->txtCategory->Text = '';
+            $this->btnSaveCategory->Display = false;
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
         /**
-         * Configures the display settings for various UI components
-         * and enables interactions for the link categories data grid.
+         * Enables input fields and interactive elements within the form.
+         *
+         * This method activates specific UI components, including text fields, buttons,
+         * filters, and the paginator, making them available for user interaction. Some
+         * elements, such as gallery-related fields and save/cancel buttons, are hidden
+         * or disabled.
          *
          * @return void
          */
-        protected function helperDisplay(): void
+        public function enableInputs(): void
         {
-            $this->btnAddCategory->Enabled = true;
             $this->txtCategory->Display = false;
             $this->lstStatus->Display = false;
             $this->btnSave->Display = false;
             $this->btnDelete->Display = false;
             $this->btnCancel->Display = false;
 
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
+            $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
+            $this->dtgLinkCategories->Paginator->Enabled = true;
+
             $this->dtgLinkCategories->removeCssClass('disabled');
+        }
+
+        /**
+         * Disables specific input elements and applies a disabled style to the links categories data grid.
+         *
+         * This method sets the `Enabled` property of specific input controls to `false`,
+         * indicating that those inputs are no longer interactable. Additionally, the data grid
+         * for gallery groups is styled with a disabled CSS class for visual feedback.
+         *
+         * @return void This method does not return any value.
+         */
+        public function disableInputs(): void
+        {
+            $this->txtCategory->Display = true;
+            $this->lstStatus->Display = true;
+            $this->btnSave->Display = true;
+            $this->btnDelete->Display = true;
+            $this->btnCancel->Display = true;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = false;
+            $this->txtFilter->Enabled = false;
+            $this->btnClearFilters->Enabled = false;
+            $this->dtgLinkCategories->Paginator->Enabled = false;
+
+            $this->dtgLinkCategories->addCssClass('disabled');
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////

@@ -75,7 +75,7 @@
         protected Bs\Button $btnExpandAll;
 
         protected Q\Plugin\Control\Alert $lblHomePageAlert;
-        protected Q\Plugin\NestedSortable $tblSorter;
+        protected Q\Plugin\Control\NestedSortable $tblSorter;
         protected int $intDeleteId;
 
         protected array $strSelectedValues = [];
@@ -142,7 +142,7 @@
 
             // NestedSortable
 
-            $this->tblSorter = new Q\Plugin\NestedSortable($this);
+            $this->tblSorter = new Q\Plugin\Control\NestedSortable($this);
             $this->tblSorter->ForcePlaceholderSize = true;
             //$this->tblSorter->DisableParentChange = true;
             $this->tblSorter->UseWrapper = false;

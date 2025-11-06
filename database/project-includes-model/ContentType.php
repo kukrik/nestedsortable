@@ -1,5 +1,9 @@
 <?php
 
+    use QCubed\Exception\Caller;
+    use QCubed\Exception\InvalidCast;
+    use QCubed\Query\QQ;
+
     require(QCUBED_PROJECT_MODEL_GEN_DIR . '/ContentTypeGen.php');
 
     /**
@@ -23,6 +27,6 @@
          */
         public static function isStandardContentType(int $contentTypeId): bool
         {
-            return $contentTypeId >= 1 && $contentTypeId <= 17;
+            return $contentTypeId >= 1 && $contentTypeId <= 21;
         }
     }

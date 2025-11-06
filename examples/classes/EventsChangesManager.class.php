@@ -3,8 +3,10 @@
     use QCubed as Q;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Event\Click;
@@ -33,9 +35,8 @@
     class EventsChangesManager extends Panel
     {
         protected ?object $lstItemsPerPageByAssignedUserObject = null;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
-
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
         protected Q\Plugin\Toastr $dlgToastr1;
         protected Q\Plugin\Toastr $dlgToastr2;
 
@@ -59,8 +60,8 @@
         public Bs\Button $btnCancel;
 
         protected int $intId;
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
 
         protected string $strTemplate = 'EventsChangesManager.tpl.php';
 
@@ -101,7 +102,7 @@
             // $objUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 2;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createItemsPerPage();
@@ -114,6 +115,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes the data table for displaying event changes.
@@ -129,7 +142,8 @@
             $this->dtgEventsChanges_MakeEditable();
             $this->dtgEventsChanges->RowParamsCallback = [$this, "dtgEventsChanges_GetRowParams"];
             $this->dtgEventsChanges->SortColumnIndex = 0;
-            $this->dtgEventsChanges->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum(); //__toString();
+            $this->dtgEventsChanges->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgEventsChanges->UseAjax = true;
         }
 
         /**
@@ -180,6 +194,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->intId = intval($params->ActionParameter);
             $objChanges = EventsChanges::load($this->intId);
 
@@ -187,14 +203,17 @@
             $this->txtChange->focus();
             $this->lstStatus->SelectedValue = $objChanges->Status ?? null;
 
-            $this->dtgEventsChanges->addCssClass('disabled');
             $this->btnAddChange->Enabled = false;
             $this->btnGoToEvents->Display = false;
-            $this->txtChange->Display = true;
-            $this->lstStatus->Display = true;
-            $this->btnSave->Display = true;
-            $this->btnDelete->Display = true;
-            $this->btnCancel->Display = true;
+
+            $this->disableInputs();
+
+            if (EventsCalendar::countByEventsChangesId($this->intId) > 0) {
+                $this->dlgModal2->showDialogBox();
+                $this->btnDelete->Enabled = false;
+            } else {
+                $this->btnDelete->Enabled = true;
+            }
         }
 
         /**
@@ -224,9 +243,6 @@
             $this->dtgEventsChanges->Paginator->LabelForPrevious = t('Previous');
             $this->dtgEventsChanges->Paginator->LabelForNext = t('Next');
 
-            $this->dtgEventsChanges->ItemsPerPage = 10;
-            $this->dtgEventsChanges->SortColumnIndex = 4;
-            $this->dtgEventsChanges->UseAjax = true;
             $this->addFilterActions();
         }
 
@@ -249,8 +265,8 @@
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
             $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -268,20 +284,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -289,11 +306,14 @@
          * Updates the items per page setting for a data grid based on the user's selection.
          *
          * @param ActionParams $params The parameters received from the action triggering this change.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgEventsChanges->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgEventsChanges->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgEventsChanges->refresh();
         }
 
@@ -307,7 +327,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
 
@@ -330,6 +350,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -337,6 +358,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgEventsChanges->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -363,10 +385,12 @@
          * displayed data is updated to reflect the current filter settings.
          *
          * @return void
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgEventsChanges->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -456,7 +480,7 @@
             $this->txtChange = new Bs\TextBox($this);
             $this->txtChange->Placeholder = t('New change');
             $this->txtChange->ActionParameter = $this->txtChange->ControlId;
-            $this->txtChange->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtChange->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
             $this->txtChange->setHtmlAttribute('autocomplete', 'off');
             $this->txtChange->setCssStyle('float', 'left');
             $this->txtChange->setCssStyle('margin-right', '10px');
@@ -605,7 +629,8 @@
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         /**
-         * Handles the click event for the "Add Change" button, configuring the display and state of related UI elements.
+         * Handles the click event for the "Add Change" button, configuring the display and state of related UI
+         * elements.
          *
          * This method disables the "Go To Events" button and enables several other UI components such as text inputs
          * and dropdown lists to facilitate the addition of a new change. It resets values, sets focus, and updates
@@ -615,6 +640,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnAddChange_Click(ActionParams $params): void
         {
@@ -624,16 +650,22 @@
                 return;
             }
 
+            $this->userOptions();
+
+            $this->btnAddChange->Enabled = false;
             $this->btnGoToEvents->Display = false;
-            $this->txtChange->Display = true;
-            $this->lstStatus->Display = true;
             $this->lstStatus->SelectedValue = 2;
-            $this->btnSaveChange->Display = true;
-            $this->btnCancel->Display = true;
             $this->txtChange->Text = '';
             $this->txtChange->focus();
-            $this->btnAddChange->Enabled = false;
-            $this->dtgEventsChanges->addCssClass('disabled');
+
+            $this->disableInputs();
+
+            if (!$this->txtChange->Text) {
+                $this->btnDelete->Display = false;
+            }
+
+            $this->btnSave->Display = false;
+            $this->btnSaveChange->Display = true;
         }
 
         /**
@@ -669,12 +701,14 @@
                     $objCategoryNews = new EventsChanges();
                     $objCategoryNews->setTitle(trim($this->txtChange->Text));
                     $objCategoryNews->setStatus($this->lstStatus->SelectedValue);
-                    $objCategoryNews->setPostDate(Q\QDateTime::now());
+                    $objCategoryNews->setPostDate(QDateTime::now());
                     $objCategoryNews->save();
+
+                    $this->btnAddChange->Enabled = true;
+                    $this->enableInputs();
 
                     $this->dtgEventsChanges->refresh();
 
-                    $this->displayHelper();
                     $this->txtChange->Text = '';
                     $this->dlgToastr1->notify();
                 } else {
@@ -687,6 +721,8 @@
                 $this->txtChange->focus();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -730,22 +766,24 @@
                     }
 
                     $this->lstStatus->SelectedValue = 1;
-                    $this->displayHelper();
                     $this->dlgModal2->showDialogBox();
 
                 } else if (($this->txtChange->Text == $objChanges->getTitle() && $this->lstStatus->SelectedValue !== $objChanges->getStatus()) ||
                     ($this->txtChange->Text !== $objChanges->getTitle() && $this->lstStatus->SelectedValue == $objChanges->getStatus())) {
                     $objChanges->setTitle(trim($this->txtChange->Text));
                     $objChanges->setStatus($this->lstStatus->SelectedValue);
-                    $objChanges->setPostUpdateDate(Q\QDateTime::now());
+                    $objChanges->setPostUpdateDate(QDateTime::now());
                     $objChanges->save();
 
                     if (!empty($_SESSION['events_changes']) || !empty($_SESSION['events_group'])) {
                         $this->btnGoToEvents->Display = true;
                     }
 
+                    $this->btnAddChange->Enabled = true;
+                    $this->enableInputs();
+
                     $this->dtgEventsChanges->refresh();
-                    $this->displayHelper();
+
                     $this->dlgToastr1->notify();
                 }
             } else {
@@ -753,6 +791,8 @@
                 $this->txtChange->focus();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -785,10 +825,12 @@
 
             if (EventsCalendar::countByEventsChangesId($this->intId) > 0) {
                 $this->dlgModal2->showDialogBox();
-                $this->displayHelper();
+                $this->disableInputs();
             } else {
                 $this->dlgModal1->showDialogBox();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -810,6 +852,14 @@
          */
         public function deleteItem_Click(ActionParams $params): void
         {
+            if (!Application::verifyCsrfToken()) {
+                $this->dlgModal5->showDialogBox();
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                return;
+            }
+
+            $this->userOptions();
+
             $objChanges = EventsChanges::loadById($this->intId);
 
             if ($params->ActionParameter == "pass") {
@@ -818,7 +868,8 @@
 
             $this->dtgEventsChanges->refresh();
 
-            $this->displayHelper();
+            $this->btnAddChange->Enabled = true;
+            $this->enableInputs();
 
             $this->dlgModal1->hideDialogBox();
         }
@@ -832,6 +883,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function hideItem_Click(ActionParams $params): void
         {
@@ -841,7 +893,10 @@
                 return;
             }
 
-            $this->displayHelper();
+            $this->userOptions();
+
+            $this->btnAddChange->Enabled = true;
+            $this->enableInputs();
         }
 
         /**
@@ -858,6 +913,7 @@
          *
          * @return void This method does not return a value.
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnCancel_Click(ActionParams $params): void
         {
@@ -867,33 +923,67 @@
                 return;
             }
 
+            $this->userOptions();
+
             if (!empty($_SESSION['events_changes']) || !empty($_SESSION['events_group'])) {
                 $this->btnGoToEvents->Display = true;
             }
 
-            $this->displayHelper();
+            $this->btnAddChange->Enabled = true;
+            $this->enableInputs();
             $this->txtChange->Text = '';
+            $this->btnSaveChange->Display = false;
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
         /**
-         * Configures the display settings for various UI components
-         * and enables interactions for the link categories data grid.
+         * Enables input fields and interactive elements within the form.
+         *
+         * This method activates specific UI components, including text fields, buttons,
+         * filters, and the paginator, making them available for user interaction. Some
+         * elements, such as gallery-related fields and save/cancel buttons, are hidden
+         * or disabled.
          *
          * @return void
          */
-        protected function displayHelper(): void
+        public function enableInputs(): void
         {
             $this->txtChange->Display = false;
             $this->lstStatus->Display = false;
-            $this->btnSaveChange->Display = false;
             $this->btnSave->Display = false;
             $this->btnDelete->Display = false;
             $this->btnCancel->Display = false;
-            $this->btnAddChange->Enabled = true;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
+            $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
+            $this->dtgEventsChanges->Paginator->Enabled = true;
 
             $this->dtgEventsChanges->removeCssClass('disabled');
+        }
+
+        /**
+         * Disables specific input elements and applies a disabled style to the events changes data grid.
+         *
+         * This method sets the `Enabled` property of specific input controls to `false`,
+         * indicating that those inputs are no longer interactable. Additionally, the data grid
+         * for gallery groups is styled with a disabled CSS class for visual feedback.
+         *
+         * @return void This method does not return any value.
+         */
+        public function disableInputs(): void
+        {
+            $this->txtChange->Display = true;
+            $this->lstStatus->Display = true;
+            $this->btnSave->Display = true;
+            $this->btnDelete->Display = true;
+            $this->btnCancel->Display = true;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = false;
+            $this->txtFilter->Enabled = false;
+            $this->btnClearFilters->Enabled = false;
+            $this->dtgEventsChanges->Paginator->Enabled = false;
+
+            $this->dtgEventsChanges->addCssClass('disabled');
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////

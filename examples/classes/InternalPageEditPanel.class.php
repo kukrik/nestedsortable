@@ -1,6 +1,7 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
     use QCubed\Event\Click;
@@ -9,6 +10,7 @@
     use QCubed\Action\ActionParams;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Project\Application;
     use QCubed\Html;
@@ -103,6 +105,22 @@
 
             $this->objMenuArray = Menu::loadAll(QQ::Clause(QQ::OrderBy(QQN::menu()->Left), QQ::expand(QQN::menu()->MenuContent)));
 
+            /**
+             * NOTE: if the user_id is stored in session (e.g., if a User is logged in), as well, for example,
+             * checking against user session etc.
+             *
+             * Must save something here $this->objArticle->setUserId(logged user session);
+             * or something similar...
+             *
+             * Options to do this are left to the developer.
+             **/
+
+            // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
+            // For example, John Doe is a logged user with his session
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
+            $this->objUser = User::load($this->intLoggedUserId);
+
+
             $this->createInputs();
             $this->createButtons();
             $this->createToastr();
@@ -110,6 +128,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Creates and configures user interface components for form inputs related to menu content.
@@ -160,7 +190,7 @@
             $this->lstContentTypes->MinimumResultsForSearch = -1;
             $this->lstContentTypes->Theme = 'web-vauu';
             $this->lstContentTypes->Width = '100%';
-            $this->lstContentTypes->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstContentTypes->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstContentTypes->addItems($this->lstContentTypeObject_GetItems(), true);
             $this->lstContentTypes->SelectedValue = $this->objMenuContent->ContentType;
             $this->lstContentTypes->addAction(new Change(), new AjaxControl($this,'lstClassNames_Change'));
@@ -177,7 +207,7 @@
             $this->lstSelectedPage->MinimumResultsForSearch = -1;
             $this->lstSelectedPage->Theme = 'web-vauu';
             $this->lstSelectedPage->Width = '100%';
-            $this->lstSelectedPage->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstSelectedPage->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstSelectedPage->addItem(t('- Select one internal page -'), null, true);
             $this->lstSelectedPage->addItems($this->lstSelectedPage_GetItems(),null, null);
             $this->lstSelectedPage->SelectedValue = $this->objMenuContent->SelectedPageId;
@@ -508,6 +538,8 @@
                 }
             }
             $objFrontendLinks->save();
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -549,6 +581,8 @@
 
                     $this->objMenuContent->save();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -579,6 +613,8 @@
             if (!$this->verifyCsrfOrModal()) {
                 return;
             }
+
+            $this->userOptions();
 
             $this->redirectToListPage();
         }

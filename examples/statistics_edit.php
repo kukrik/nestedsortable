@@ -99,7 +99,7 @@ class SampleForm extends Form
 
     protected $errors = []; // Array for tracking errors
 
-    protected function formCreate()
+    protected function formCreate(): void
     {
         parent::formCreate();
 

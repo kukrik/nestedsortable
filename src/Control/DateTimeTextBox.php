@@ -10,6 +10,7 @@
     use QCubed\Exception\InvalidCast;
     use QCubed\QDateTime;
     use QCubed\Type;
+    use Throwable;
 
     /**
      * Class DateTimeTextBox
@@ -59,6 +60,7 @@
          * @return void
          * @throws Caller
          * @throws DateMalformedStringException
+         * @throws \Exception
          */
         public function parsePostData(): void
         {
@@ -225,6 +227,7 @@
          * @throws Caller
          * @throws InvalidCast If the value cannot be correctly cast.
          * @throws Exception
+         * @throws Throwable
          */
         public function __set(string $strName, mixed $mixValue): void
         {

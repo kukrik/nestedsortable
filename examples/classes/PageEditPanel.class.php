@@ -4,12 +4,14 @@
     use QCubed\Action\ActionParams;
     use QCubed\Action\AjaxControl;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Event\Change;
     use QCubed\Event\Click;
     use QCubed\Event\DialogButton;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Project\Application;
@@ -53,12 +55,14 @@
         protected string $strSaveButtonId;
         protected string $strSavingButtonId;
 
-        protected int $intId;
         protected object $objMenu;
         protected object $objMenuContent;
         protected ?object $objFrontendLinks = null;
         protected ?object $objMembersSetting = null;
-        protected int $intLoggedUserId;
+
+        protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
 
         protected string $strTemplate = 'PageEditPanel.tpl.php';
 
@@ -100,7 +104,8 @@
 
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
-            $this->intLoggedUserId = 1;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
+            $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createInputs();
             $this->createButtons();
@@ -110,6 +115,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and creates input controls for menu editing, including labels, text boxes, and a select box with options for selecting content types.
@@ -155,7 +172,7 @@
             $this->lstContentTypes->MinimumResultsForSearch = -1;
             $this->lstContentTypes->Theme = 'web-vauu';
             $this->lstContentTypes->Width = '100%';
-            $this->lstContentTypes->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstContentTypes->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
 
             if (!$this->objMenuContent->getContentType()) {
                 $this->lstContentTypes->addItem(t('- Select one type -'), null, true);
@@ -351,6 +368,8 @@
             $this->objMenuContent->setSettingLocked(2);
             $this->objMenuContent->save();
 
+            $this->userOptions();
+
             if ($this->objMenuContent->getMenuTreeHierarchy()) {
                 $updatedUrl = $this->objMenuContent->getMenuTreeHierarchy();
             } else {
@@ -361,13 +380,26 @@
                 $objTemplateLocking = FrontendTemplateLocking::load(2);
                 $objFrontendOptions = FrontendOptions::loadById($objTemplateLocking->FrontendTemplateLockedId);
 
+                 $this->objMenuContent->setRedirectUrl($updatedUrl);
+                 $this->objMenuContent->setHomelyUrl(1);
+                 $this->objMenuContent->save();
+
                 $objArticle = new Article();
                 $objArticle->setMenuContentId($this->objMenuContent->Id);
 
-                $objArticle->setPostDate(Q\QDateTime::now());
+                $objArticle->setPostDate(QDateTime::now());
                 $objArticle->setAssignedByUser($this->intLoggedUserId);
                 $objArticle->setAuthor($objArticle->getAssignedByUserObject());
                 $objArticle->save();
+
+                $objArticle = Article::countAll();
+                $objPortlet = Portlet::load(1);
+
+                if ($objArticle) {
+                    $objPortlet->setCounterUp($objArticle);
+                    $objPortlet->setLastDate(QDateTime::now());
+                    $objPortlet->save();
+                }
 
                 $objFrontendLinks = new FrontendLinks();
                 $objFrontendLinks->setLinkedId($this->objMenuContent->Id);
@@ -392,8 +424,17 @@
                 $objNewsSettings->setIsReserved(1);
                 $objNewsSettings->setMenuContentId($this->objMenuContent->Id);
                 $objNewsSettings->setTitleSlug($updatedUrl);
-                $objNewsSettings->setPostDate(Q\QDateTime::now());
+                $objNewsSettings->setPostDate(QDateTime::now());
                 $objNewsSettings->save();
+
+                $objSettings = NewsSettings::countAll();
+                $objPortlet = Portlet::load(2);
+
+                if ($objSettings) {
+                    $objPortlet->setCounterUp($objSettings);
+                    $objPortlet->setLastDate(QDateTime::now());
+                    $objPortlet->save();
+                }
 
                 $this->objMenuContent->setRedirectUrl($updatedUrl);
                 $this->objMenuContent->setHomelyUrl(1);
@@ -435,8 +476,17 @@
                 $objEventsSettings->setIsReserved(1);
                 $objEventsSettings->setMenuContentId($this->objMenuContent->Id);
                 $objEventsSettings->setTitleSlug($updatedUrl);
-                $objEventsSettings->setPostDate(Q\QDateTime::now());
+                $objEventsSettings->setPostDate(QDateTime::now());
                 $objEventsSettings->save();
+
+                $objSettings = EventsSettings::countAll();
+                $objPortlet = Portlet::load(4);
+
+                if ($objSettings) {
+                    $objPortlet->setCounterUp($objSettings);
+                    $objPortlet->setLastDate(QDateTime::now());
+                    $objPortlet->save();
+                }
 
                 $this->objMenuContent->setRedirectUrl($updatedUrl);
                 $this->objMenuContent->setHomelyUrl(1);
@@ -449,7 +499,6 @@
                 $objFrontendLinks->setFrontendTemplatePath($objFrontendOptions->FrontendTemplatePath);
                 $objFrontendLinks->setTitle(trim($this->txtMenuText->Text));
                 $objFrontendLinks->setFrontendTitleSlug($updatedUrl);
-                $objFrontendLinks->setIsActivated(1);
                 $objFrontendLinks->save();
 
                 $objMetadata = new Metadata();
@@ -466,8 +515,17 @@
                 $objEventsSettings->setIsReserved(1);
                 $objEventsSettings->setMenuContentId($this->objMenuContent->Id);
                 $objEventsSettings->setTitleSlug($updatedUrl);
-                $objEventsSettings->setPostDate(Q\QDateTime::now());
+                $objEventsSettings->setPostDate(QDateTime::now());
                 $objEventsSettings->save();
+
+                $objSettings = SportsSettings::countAll();
+                $objPortlet = Portlet::load(5);
+
+                if ($objSettings) {
+                    $objPortlet->setCounterUp($objSettings);
+                    $objPortlet->setLastDate(QDateTime::now());
+                    $objPortlet->save();
+                }
 
                 $this->objMenuContent->setRedirectUrl($updatedUrl);
                 $this->objMenuContent->setHomelyUrl(1);
@@ -502,7 +560,6 @@
                 $objFrontendLinks->setTitle(trim($this->txtMenuText->Text));
                 $objFrontendLinks->setFrontendTitleSlug($updatedUrl);
                 $objFrontendLinks->setContentTypesManagamentId(11);
-                $objFrontendLinks->setIsActivated(1);
                 $objFrontendLinks->save();
 
                 $objMetadata = new Metadata();
@@ -519,10 +576,19 @@
                 $objBoardsSettings->setIsReserved(1);
                 $objBoardsSettings->setMenuContentId($this->objMenuContent->Id);
                 $objBoardsSettings->setTitleSlug($updatedUrl);
-                $objBoardsSettings->setPostDate(Q\QDateTime::now());
+                $objBoardsSettings->setPostDate(QDateTime::now());
                 $objBoardsSettings->setAssignedByUser($this->intLoggedUserId);
                 $objBoardsSettings->setAuthor($objBoardsSettings->getAssignedByUserObject());
                 $objBoardsSettings->save();
+
+                $objSettings = BoardsSettings::countAll();
+                $objPortlet = Portlet::load(6);
+
+                if ($objSettings) {
+                    $objPortlet->setCounterUp($objSettings);
+                    $objPortlet->setLastDate(QDateTime::now());
+                    $objPortlet->save();
+                }
 
                 $this->objMenuContent->setRedirectUrl($updatedUrl);
                 $this->objMenuContent->setHomelyUrl(1);
@@ -575,10 +641,19 @@
                 $objMembersSettings->setIsReserved(1);
                 $objMembersSettings->setMenuContentId($this->objMenuContent->Id);
                 $objMembersSettings->setTitleSlug($updatedUrl);
-                $objMembersSettings->setPostDate(Q\QDateTime::now());
+                $objMembersSettings->setPostDate(QDateTime::now());
                 $objMembersSettings->setAssignedByUser($this->intLoggedUserId);
                 $objMembersSettings->setAuthor($objMembersSettings->getAssignedByUserObject());
                 $objMembersSettings->save();
+
+                $objSettings = MembersSettings::countAll();
+                $objPortlet = Portlet::load(7);
+
+                if ($objSettings) {
+                    $objPortlet->setCounterUp($objSettings);
+                    $objPortlet->setLastDate(QDateTime::now());
+                    $objPortlet->save();
+                }
 
                 $this->objMenuContent->setRedirectUrl($updatedUrl);
                 $this->objMenuContent->setHomelyUrl(1);
@@ -591,7 +666,6 @@
                 $objFrontendLinks->setFrontendTemplatePath($objFrontendOptions->FrontendTemplatePath);
                 $objFrontendLinks->setTitle(trim($this->txtMenuText->Text));
                 $objFrontendLinks->setFrontendTitleSlug($updatedUrl);
-                $objFrontendLinks->setIsActivated(1);
                 $objFrontendLinks->save();
 
                 $objMetadata = new Metadata();
@@ -637,10 +711,19 @@
                 $objVideosSettings->setIsReserved(1);
                 $objVideosSettings->setMenuContentId($this->objMenuContent->Id);
                 $objVideosSettings->setTitleSlug($updatedUrl);
-                $objVideosSettings->setPostDate(Q\QDateTime::now());
+                $objVideosSettings->setPostDate(QDateTime::now());
                 $objVideosSettings->setAssignedByUser($this->intLoggedUserId);
                 $objVideosSettings->setAuthor($objVideosSettings->getAssignedByUserObject());
                 $objVideosSettings->save();
+
+                $objSettings = VideosSettings::countAll();
+                $objPortlet = Portlet::load(8);
+
+                if ($objSettings) {
+                    $objPortlet->setCounterUp($objSettings);
+                    $objPortlet->setLastDate(QDateTime::now());
+                    $objPortlet->save();
+                }
 
                 $this->objMenuContent->setRedirectUrl($updatedUrl);
                 $this->objMenuContent->setHomelyUrl(1);
@@ -664,15 +747,24 @@
                 $objTemplateLocking = FrontendTemplateLocking::load(15);
                 $objFrontendOptions = FrontendOptions::loadById($objTemplateLocking->FrontendTemplateLockedId);
 
-                $objStatisticsSettings = StatisticsSettings::load(14);
+                $objStatisticsSettings = StatisticsSettings::load(1);
                 $objStatisticsSettings->setName(trim($this->txtMenuText->Text));
                 $objStatisticsSettings->setIsReserved(1);
                 $objStatisticsSettings->setMenuContentId($this->objMenuContent->Id);
                 $objStatisticsSettings->setTitleSlug($updatedUrl);
-                $objStatisticsSettings->setPostDate(Q\QDateTime::now());
+                $objStatisticsSettings->setPostDate(QDateTime::now());
                 $objStatisticsSettings->setAssignedByUser($this->intLoggedUserId);
                 $objStatisticsSettings->setAuthor($objStatisticsSettings->getAssignedByUserObject());
                 $objStatisticsSettings->save();
+
+                $objSettings = StatisticsSettings::countByIsReserved(1);
+                $objPortlet = Portlet::load(9);
+
+                if ($objSettings) {
+                    $objPortlet->setCounterUp($objSettings);
+                    $objPortlet->setLastDate(QDateTime::now());
+                    $objPortlet->save();
+                }
 
                 $this->objMenuContent->setRedirectUrl($updatedUrl);
                 $this->objMenuContent->setHomelyUrl(1);
@@ -685,7 +777,6 @@
                 $objFrontendLinks->setFrontendTemplatePath($objFrontendOptions->FrontendTemplatePath);
                 $objFrontendLinks->setTitle(trim($this->txtMenuText->Text));
                 $objFrontendLinks->setFrontendTitleSlug($updatedUrl);
-                $objFrontendLinks->setIsActivated(1);
                 $objFrontendLinks->save();
 
                 $objMetadata = new Metadata();
@@ -697,15 +788,24 @@
                 $objTemplateLocking = FrontendTemplateLocking::load(16);
                 $objFrontendOptions = FrontendOptions::loadById($objTemplateLocking->FrontendTemplateLockedId);
 
-                $objStatisticsSettings = StatisticsSettings::load(15);
+                $objStatisticsSettings = StatisticsSettings::load(2);
                 $objStatisticsSettings->setName(trim($this->txtMenuText->Text));
                 $objStatisticsSettings->setIsReserved(1);
                 $objStatisticsSettings->setMenuContentId($this->objMenuContent->Id);
                 $objStatisticsSettings->setTitleSlug($updatedUrl);
-                $objStatisticsSettings->setPostDate(Q\QDateTime::now());
+                $objStatisticsSettings->setPostDate(QDateTime::now());
                 $objStatisticsSettings->setAssignedByUser($this->intLoggedUserId);
                 $objStatisticsSettings->setAuthor($objStatisticsSettings->getAssignedByUserObject());
                 $objStatisticsSettings->save();
+
+                $objSettings = StatisticsSettings::countByIsReserved(1);
+                $objPortlet = Portlet::load(9);
+
+                if ($objSettings) {
+                    $objPortlet->setCounterUp($objSettings);
+                    $objPortlet->setLastDate(QDateTime::now());
+                    $objPortlet->save();
+                }
 
                 $this->objMenuContent->setRedirectUrl($updatedUrl);
                 $this->objMenuContent->setHomelyUrl(1);
@@ -729,15 +829,24 @@
                 $objTemplateLocking = FrontendTemplateLocking::load(17);
                 $objFrontendOptions = FrontendOptions::loadById($objTemplateLocking->FrontendTemplateLockedId);
 
-                $objStatisticsSettings = StatisticsSettings::load(16);
+                $objStatisticsSettings = StatisticsSettings::load(3);
                 $objStatisticsSettings->setName(trim($this->txtMenuText->Text));
                 $objStatisticsSettings->setIsReserved(1);
                 $objStatisticsSettings->setMenuContentId($this->objMenuContent->Id);
                 $objStatisticsSettings->setTitleSlug($updatedUrl);
-                $objStatisticsSettings->setPostDate(Q\QDateTime::now());
+                $objStatisticsSettings->setPostDate(QDateTime::now());
                 $objStatisticsSettings->setAssignedByUser($this->intLoggedUserId);
                 $objStatisticsSettings->setAuthor($objStatisticsSettings->getAssignedByUserObject());
                 $objStatisticsSettings->save();
+
+                $objSettings = StatisticsSettings::countByIsReserved(1);
+                $objPortlet = Portlet::load(9);
+
+                if ($objSettings) {
+                    $objPortlet->setCounterUp($objSettings);
+                    $objPortlet->setLastDate(QDateTime::now());
+                    $objPortlet->save();
+                }
 
                 $this->objMenuContent->setRedirectUrl($updatedUrl);
                 $this->objMenuContent->setHomelyUrl(1);
@@ -750,7 +859,6 @@
                 $objFrontendLinks->setFrontendTemplatePath($objFrontendOptions->FrontendTemplatePath);
                 $objFrontendLinks->setTitle(trim($this->txtMenuText->Text));
                 $objFrontendLinks->setFrontendTitleSlug($updatedUrl);
-                $objFrontendLinks->setIsActivated(1);
                 $objFrontendLinks->save();
 
                 $objMetadata = new Metadata();
@@ -767,10 +875,19 @@
                 $objLinksSettings->setIsReserved(1);
                 $objLinksSettings->setMenuContentId($this->objMenuContent->Id);
                 $objLinksSettings->setTitleSlug($updatedUrl);
-                $objLinksSettings->setPostDate(Q\QDateTime::now());
+                $objLinksSettings->setPostDate(QDateTime::now());
                 $objLinksSettings->setAssignedByUser($this->intLoggedUserId);
                 $objLinksSettings->setAuthor($objLinksSettings->getAssignedByUserObject());
                 $objLinksSettings->save();
+
+                $objSettings = LinksSettings::countAll();
+                $objPortlet = Portlet::load(10);
+
+                if ($objSettings) {
+                    $objPortlet->setCounterUp($objSettings);
+                    $objPortlet->setLastDate(QDateTime::now());
+                    $objPortlet->save();
+                }
 
                 $this->objMenuContent->setRedirectUrl($updatedUrl);
                 $this->objMenuContent->setHomelyUrl(1);
@@ -904,8 +1021,17 @@
             $objGallerySettings->setIsReserved(1);
             $objGallerySettings->setGalleryGroupId($this->objMenuContent->getId());
             $objGallerySettings->setFolderId($objAddFolder->getId());
-            $objGallerySettings->setPostDate(Q\QDateTime::now());
+            $objGallerySettings->setPostDate(QDateTime::now());
             $objGallerySettings->save();
+
+            $objSettings = GallerySettings::countAll();
+            $objPortlet = Portlet::load(3);
+
+            if ($objSettings) {
+                $objPortlet->setCounterUp($objSettings);
+                $objPortlet->setLastDate(QDateTime::now());
+                $objPortlet->save();
+            }
 
             $this->objMenuContent->setHomelyUrl(1);
             $this->objMenuContent->save();
@@ -917,7 +1043,6 @@
             $objFrontendLinks->setFrontendTemplatePath($objFrontendOptions->FrontendTemplatePath);
             $objFrontendLinks->setTitle(trim($this->txtMenuText->Text));
             $objFrontendLinks->setFrontendTitleSlug($updatedUrl);
-            $objFrontendLinks->setIsActivated(1);
             $objFrontendLinks->save();
 
             $objMetadata = new Metadata();

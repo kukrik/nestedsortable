@@ -2,6 +2,7 @@
 
     use QCubed as Q;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Event\Click;
     use QCubed\Event\Change;
     use QCubed\Event\EnterKey;
@@ -11,6 +12,7 @@
     use QCubed\Action\ActionParams;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Project\Application;
     use QCubed\Html;
@@ -62,6 +64,9 @@
         protected string $strSaveButtonId;
 
         protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected object $objMenuContent;
         protected object $objMenu;
 
@@ -93,6 +98,21 @@
             $this->objMenu = Menu::load($this->intId);
             $this->objMenuContent = MenuContent::load($this->intId);
 
+            /**
+             * NOTE: if the user_id is stored in session (e.g., if a User is logged in), as well, for example,
+             * checking against user session etc.
+             *
+             * Must save something here $this->objArticle->setUserId(logged user session);
+             * or something similar...
+             *
+             * Options to do this are left to the developer.
+             **/
+
+            // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
+            // For example, John Doe is a logged user with his session
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
+            $this->objUser = User::load($this->intLoggedUserId);
+
             $this->createInputs();
             $this->createButtons();
             $this->createToastr();
@@ -100,6 +120,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and configures the UI components for managing menu inputs, including labels, textboxes, select controls, and other input elements.
@@ -144,7 +176,7 @@
             $this->lstContentTypes->MinimumResultsForSearch = -1;
             $this->lstContentTypes->Theme = 'web-vauu';
             $this->lstContentTypes->Width = '100%';
-            $this->lstContentTypes->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstContentTypes->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstContentTypes->addItems($this->lstContentTypeObject_GetItems(), true);
             $this->lstContentTypes->SelectedValue = $this->objMenuContent->ContentType;
             $this->lstContentTypes->addAction(new Change(), new AjaxControl($this,'lstClassNames_Change'));
@@ -178,7 +210,7 @@
             $this->lstTargetTypeObject->MinimumResultsForSearch = -1;
             $this->lstTargetTypeObject->Theme = 'web-vauu';
             $this->lstTargetTypeObject->Width = '100%';
-            $this->lstTargetTypeObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstTargetTypeObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstTargetTypeObject->addItem(t('- Select target type -'), null, true);
             $this->lstTargetTypeObject->addItems($this->lstTargetTypeObject_GetItems());
             $this->lstTargetTypeObject->SelectedValue = $this->objMenuContent->TargetType;
@@ -404,6 +436,8 @@
                 $this->dlgToastr2->notify();
                 $this->txtRedirect->focus();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -443,6 +477,8 @@
 
                 $this->objMenuContent->save();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -518,6 +554,8 @@
             } else {
                 $this->lstTargetTypeObject->Enabled = false;
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -587,6 +625,8 @@
                     Application::executeJavaScript("jQuery($this->strSaveButtonId).text('$strUpdate_translate');");
                 }
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -605,6 +645,8 @@
             if (!$this->verifyCsrfOrModal()) {
                 return;
             }
+
+            $this->userOptions();
 
             $this->redirectToListPage();
         }

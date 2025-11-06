@@ -89,6 +89,7 @@
          *
          * @throws InvalidCast If the provided value cannot be cast to the expected type.
          * @throws Caller If the property is not recognized and cannot be handled by the parent class.
+         * @throws \Exception
          */
         public function __set(string $strName, mixed $mixValue): void
         {

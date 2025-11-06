@@ -6,7 +6,7 @@
 </style>
 <div class="form-horizontal">
     <div class="row">
-        <div class="panel-heading" style="margin-top: -15px;">
+        <div class="panel-heading">
             <span class="vauu-title-3"><?php _t('Managing record holders') ?></span>
         </div>
     </div>
@@ -18,6 +18,7 @@
                     <div class="col-md-12">
                         <div class="add-wrapper">
                             <?= _r($this->btnAddNewRecordsHolder); ?>
+                            <?= _r($this->btnRefresh); ?>
                         </div>
                     </div>
                 </div>

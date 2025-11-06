@@ -1,10 +1,12 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Event\Click;
@@ -59,7 +61,12 @@
         public Q\Plugin\Control\RadioList $lstStatusMember;
         public Bs\Button $btnSave;
         public Bs\Button $btnClose;
-        protected int $intLoggedUserId;
+
+        protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+        protected object $objPortlet;
+
         protected mixed $objId = null;
 
         protected string $strTemplate = 'MembersOptionsPanel.tpl.php';
@@ -95,7 +102,10 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 2;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
+            $this->objUser = User::load($this->intLoggedUserId);
+            $this->objPortlet = Portlet::load(7);
+
 
             $this->createSorter();
             $this->createInputs();
@@ -105,6 +115,21 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+
+            $this->objPortlet->setLastDate(QDateTime::now());
+            $this->objPortlet->save();
+        }
 
         /**
          * Creates and configures a SortWrapper control for managing sortable elements.
@@ -230,7 +255,7 @@
             $this->lstGroupTitle->MinimumResultsForSearch = -1;
             $this->lstGroupTitle->Theme = 'web-vauu';
             $this->lstGroupTitle->Width = '90%';
-            $this->lstGroupTitle->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstGroupTitle->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstGroupTitle->setCssStyle('float', 'left');
             $this->lstGroupTitle->addItem(t('- Choose members group -'), null, true);
 
@@ -364,6 +389,7 @@
          * Initializes and sets up the various modal dialogs used throughout the application.
          *
          * @return void
+         * @throws Caller
          */
         protected function createModals(): void
         {
@@ -483,6 +509,7 @@
             $this->lstStatusMember->SelectedValue = $obj->ActivityStatusObject->Id;
 
             $this->dlgSorter->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -493,6 +520,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnClose_Click(ActionParams $params): void
         {
@@ -505,6 +533,7 @@
             $this->intChangeId = null;
 
             $this->dlgSorter->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -539,12 +568,12 @@
 
             $objMembersSettings = MembersSettings::loadById($this->lstGroupTitle->SelectedValue);
 
-            $objMembersSettings->setPostUpdateDate(Q\QDateTime::now());
+            $objMembersSettings->setPostUpdateDate(QDateTime::now());
             $objMembersSettings->setAssignedEditorsNameById($this->intLoggedUserId);
             $objMembersSettings->save();
 
             $this->txtUsersAsEditors->Text = implode(', ', $objMembersSettings->getUserAsMembersEditorsArray());
-            $this->calPostUpdateDate->Text = $objMembersSettings->getPostUpdateDate()->qFormat('DD.MM.YYYY hhhh:mm:ss');
+            $this->calPostUpdateDate->Text = $objMembersSettings->getPostUpdateDate()->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time);
 
             $this->refreshDisplay();
 
@@ -558,6 +587,7 @@
             $this->intChangeId = null;
 
             $this->dlgSorter->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -598,12 +628,12 @@
             $objMenuContent->save();
 
             $objMembersSettings->setStatus($this->lstStatus->SelectedValue);
-            $objMembersSettings->setPostUpdateDate(Q\QDateTime::now());
+            $objMembersSettings->setPostUpdateDate(QDateTime::now());
             $objMembersSettings->setAssignedEditorsNameById($this->intLoggedUserId);
             $objMembersSettings->save();
 
             $this->txtUsersAsEditors->Text = implode(', ', $objMembersSettings->getUserAsMembersEditorsArray());
-            $this->calPostUpdateDate->Text = $objMembersSettings->getPostUpdateDate()->qFormat('DD.MM.YYYY hhhh:mm:ss');
+            $this->calPostUpdateDate->Text = $objMembersSettings->getPostUpdateDate()->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time);
 
             if ($objMembersSettings->getStatus() === 2) {
                 $this->dlgModal3->showDialogBox();
@@ -612,6 +642,7 @@
             }
 
             $this->refreshDisplay();
+            $this->userOptions();
         }
 
         /**
@@ -654,12 +685,12 @@
             $objMembersSettings = MembersSettings::loadById($this->lstGroupTitle->SelectedValue);
 
             $objMembersSettings->setAllowedUploading($this->lstImageUpload->SelectedValue);
-            $objMembersSettings->setPostUpdateDate(Q\QDateTime::now());
+            $objMembersSettings->setPostUpdateDate(QDateTime::now());
             $objMembersSettings->setAssignedEditorsNameById($this->intLoggedUserId);
             $objMembersSettings->save();
 
             $this->txtUsersAsEditors->Text = implode(', ', $objMembersSettings->getUserAsMembersEditorsArray());
-            $this->calPostUpdateDate->Text = $objMembersSettings->getPostUpdateDate()->qFormat('DD.MM.YYYY hhhh:mm:ss');
+            $this->calPostUpdateDate->Text = $objMembersSettings->getPostUpdateDate()->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time);
 
             if ($objMembersSettings->getAllowedUploading() === 2) {
                 $this->dlgModal5->showDialogBox();
@@ -668,6 +699,7 @@
             }
 
             $this->refreshDisplay();
+            $this->userOptions();
         }
 
         /**
@@ -692,14 +724,15 @@
             $objMembersSettings = MembersSettings::loadById($this->lstGroupTitle->SelectedValue);
             $objMembersOptions = MembersOptions::load($this->intChangeId);
 
-            $objMembersSettings->setPostUpdateDate(Q\QDateTime::Now());
+            $objMembersSettings->setPostUpdateDate(QDateTime::Now());
             $objMembersSettings->setAssignedEditorsNameById($this->intLoggedUserId);
             $objMembersSettings->save();
 
             $this->txtUsersAsEditors->Text = implode(', ', $objMembersSettings->getUserAsMembersEditorsArray());
-            $this->calPostUpdateDate->Text = $objMembersSettings->getPostUpdateDate()->qFormat('DD.MM.YYYY hhhh:mm:ss');
+            $this->calPostUpdateDate->Text = $objMembersSettings->getPostUpdateDate()->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time);
 
             $this->refreshDisplay();
+            $this->userOptions();
 
             if ($objMembersOptions->ActivityStatusObject->Id === 1) {
                 $objMembersOptions->setActivityStatus(2);
@@ -738,8 +771,8 @@
                 $this->objId = MembersSettings::loadById($this->lstGroupTitle->SelectedValue);
 
                 $this->lblInfo->Display = false;
-                $this->calPostDate->Text = $this->objId->PostDate ? $this->objId->PostDate->qFormat('DD.MM.YYYY hhhh:mm:ss') : null;
-                $this->calPostUpdateDate->Text = $this->objId->PostUpdateDate ? $this->objId->PostUpdateDate->qFormat('DD.MM.YYYY hhhh:mm:ss') : null;
+                $this->calPostDate->Text = $this->objId->PostDate ? $this->objId->PostDate->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time) : null;
+                $this->calPostUpdateDate->Text = $this->objId->PostUpdateDate ? $this->objId->PostUpdateDate->qFormat($this->objUser->PreferredDateTimeObject->Date . ' ' . $this->objUser->PreferredDateTimeObject->Time) : null;
                 $this->txtAuthor->Text = $this->objId->Author;
                 $this->lstStatus->SelectedValue = $this->objId->Status;
                 $this->lstImageUpload->SelectedValue = $this->objId->AllowedUploading;
@@ -769,6 +802,7 @@
             $this->intChangeId = null;
 
             $this->dlgSorter->refresh();
+            $this->userOptions();
         }
 
         /**

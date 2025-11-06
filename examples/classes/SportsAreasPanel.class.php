@@ -2,10 +2,13 @@
 
     use QCubed as Q;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Event\EscapeKey;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Event\Change;
@@ -32,13 +35,14 @@
     class SportsAreasPanel extends Panel
     {
         protected Q\Plugin\Select2 $lstItemsPerPageByAssignedUserObject;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToastr1;
         protected Q\Plugin\Toastr $dlgToastr2;
         protected Q\Plugin\Toastr $dlgToastr3;
         protected Q\Plugin\Toastr $dlgToastr4;
+        protected Q\Plugin\Toastr $dlgToastr5;
 
         public Bs\Modal $dlgModal1;
         public Bs\Modal $dlgModal2;
@@ -54,6 +58,7 @@
         public Bs\TextBox $txtSportsArea;
         public Q\Plugin\Control\Label $lblStatus;
         public Q\Plugin\Control\RadioList $lstStatus;
+        public Bs\Button $btnRefresh;
         public Bs\Button $btnAddSportsArea;
         public Bs\Button $btnGoToEvents;
         public Bs\Button $btnSaveNew;
@@ -62,8 +67,8 @@
         public Bs\Button $btnCancel;
 
         protected ?int $intId = null;
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
 
         protected bool $blnEditMode = true;
 
@@ -106,7 +111,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId= 1;
+            $this->intLoggedUserId= $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createItemsPerPage();
@@ -124,6 +129,18 @@
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
+
+        /**
          * Initializes and configures the SportAreasTable component.
          *
          * @return void
@@ -138,7 +155,8 @@
             $this->dtgSportsAreas->RowParamsCallback = [$this, "dtgSportsAreas_GetRowParams"];
             $this->dtgSportsAreas->SortColumnIndex = 0;
             $this->dtgSportsAreas->SortDirection = -1;
-            $this->dtgSportsAreas->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum();
+            $this->dtgSportsAreas->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgSportsAreas->UseAjax = true;
         }
 
         /**
@@ -203,6 +221,7 @@
             $this->btnGoToEvents->Enabled = false;
             $this->lstItemsPerPageByAssignedUserObject->Enabled = false;
             $this->txtFilter->Enabled = false;
+            $this->btnClearFilters->Enabled = false;
             $this->dtgSportsAreas->Paginator->Enabled = false;
             $this->dtgSportsAreas->addCssClass('disabled');
 
@@ -266,9 +285,6 @@
             //$this->dtgSportsAreas->PaginatorAlternate->LabelForPrevious = t('Previous');
             //$this->dtgSportsAreas->PaginatorAlternate->LabelForNext = t('Next');
 
-            $this->dtgSportsAreas->ItemsPerPage = 10;
-            $this->dtgSportsAreas->SortColumnIndex = 0;
-            $this->dtgSportsAreas->UseAjax = true;
             $this->addFilterActions();
         }
 
@@ -288,9 +304,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -307,20 +323,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -328,11 +345,14 @@
          * Updates the number of items displayed per page for the data grid and refreshes it based on the selected user object.
          *
          * @param ActionParams $params The parameters related to the action, which may include details about the specific user object selection change.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgSportsAreas->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgSportsAreas->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgSportsAreas->refresh();
         }
 
@@ -348,7 +368,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
 
@@ -510,6 +530,15 @@
          */
         public function createButtons(): void
         {
+            $this->btnRefresh = new Bs\Button($this);
+            $this->btnRefresh->Tip = true;
+            $this->btnRefresh->ToolTip = t('Refresh tables');
+            $this->btnRefresh->Glyph = 'fa fa-refresh';
+            $this->btnRefresh->CssClass = 'btn btn-darkblue';
+            $this->btnRefresh->CausesValidation = false;
+            $this->btnRefresh->setCssStyle('float', 'left');
+            $this->btnRefresh->addAction(new Click(), new AjaxControl($this, 'btnRefresh_Click'));
+
             $this->btnAddSportsArea = new Bs\Button($this);
             $this->btnAddSportsArea->Text = t(' Add sport area');
             $this->btnAddSportsArea->Glyph = 'fa fa-plus';
@@ -518,6 +547,7 @@
             $this->btnAddSportsArea->CausesValidation = false;
             $this->btnAddSportsArea->addAction(new Click(), new AjaxControl($this, 'btnAddSportsArea_Click'));
             $this->btnAddSportsArea->setCssStyle('float', 'left');
+            $this->btnAddSportsArea->setCssStyle('margin-left', '10px');
             $this->btnAddSportsArea->setCssStyle('margin-right', '10px');
 
             $this->btnGoToEvents = new Bs\Button($this);
@@ -602,6 +632,11 @@
             $this->dlgToastr4->Message = t('The sport entry update was canceled and the sport has been restored!');
             $this->dlgToastr4->ProgressBar = true;
 
+            $this->dlgToastr5 = new Q\Plugin\Toastr($this);
+            $this->dlgToastr5->AlertType = Q\Plugin\ToastrBase::TYPE_SUCCESS;
+            $this->dlgToastr5->PositionClass = Q\Plugin\ToastrBase::POSITION_TOP_CENTER;
+            $this->dlgToastr5->Message = t('The table has been updated!');
+            $this->dlgToastr5->ProgressBar = true;
         }
 
         /**
@@ -665,6 +700,32 @@
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         /**
+         * Handles the click event for the refresh button.
+         *
+         * This method verifies the CSRF token to ensure request authenticity. If the
+         * verification fails, it shows a modal dialog and regenerates the CSRF token.
+         * If verification passes, the method refreshes the sports areas data grid
+         * and triggers a notification.
+         *
+         * @param ActionParams $params The parameters passed to the action during the event handling.
+         *
+         * @return void
+         * @throws Caller
+         * @throws RandomException
+         */
+        protected function btnRefresh_Click(ActionParams $params): void
+        {
+            if (!Application::verifyCsrfToken()) {
+                $this->dlgModal5->showDialogBox();
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                return;
+            }
+
+            $this->dtgSportsAreas->refresh();
+            $this->dlgToastr5->notify();
+        }
+
+        /**
          * Handles the click event for the "Add Sports Area" button. This method sets various UI elements to be
          * displayed, clears the text field for the sports area, focuses the text field, and handles session-related
          * logic.
@@ -702,8 +763,11 @@
             $this->btnAddSportsArea->Enabled = false;
             $this->lstItemsPerPageByAssignedUserObject->Enabled = false;
             $this->txtFilter->Enabled = false;
+            $this->btnClearFilters->Enabled = false;
             $this->dtgSportsAreas->Paginator->Enabled = false;
             $this->dtgSportsAreas->addCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -756,9 +820,11 @@
                     }
                 }
 
-                $objSportsAreas->setPostUpdateDate(Q\QDateTime::now());
+                $objSportsAreas->setPostUpdateDate(QDateTime::now());
                 $objSportsAreas->save();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -789,7 +855,7 @@
                         $objSportsAreas = new SportsAreas();
                         $objSportsAreas->setName($this->txtSportsArea->Text);
                         $objSportsAreas->setIsEnabled($this->lstStatus->SelectedValue);
-                        $objSportsAreas->setPostDate(Q\QDateTime::now());
+                        $objSportsAreas->setPostDate(QDateTime::now());
                         $objSportsAreas->save();
 
                         $this->dtgSportsAreas->refresh();
@@ -812,6 +878,8 @@
                     $this->dlgToastr2->notify();
                 }
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -861,7 +929,7 @@
                         ($this->txtSportsArea->Text != $objSportsAreas->getName() && $this->lstStatus->SelectedValue == $objSportsAreas->getIsEnabled())) {
                         $objSportsAreas->setName(trim($this->txtSportsArea->Text));
                         $objSportsAreas->setIsEnabled($this->lstStatus->SelectedValue);
-                        $objSportsAreas->setPostUpdateDate(Q\QDateTime::now());
+                        $objSportsAreas->setPostUpdateDate(QDateTime::now());
                         $objSportsAreas->save();
 
                         if (!empty($_SESSION['sports_areas_id']) || !empty($_SESSION['sports_areas_group'])) {
@@ -872,15 +940,15 @@
                         $this->displayHelper();
                         $this->dlgToastr1->notify();
                     }
-
-
                 } else { // NOT TEXT
-                    $this->txtSportsArea->Text = $objSportsAreas->getName();;
+                    $this->txtSportsArea->Text = $objSportsAreas->getName();
                     $this->txtSportsArea->focus();
                     $this->dlgToastr2->notify();
                 }
 
             } // TRUE
+
+            $this->userOptions();
         }
 
         /**
@@ -943,6 +1011,8 @@
             } else {
                 $this->dlgModal1->showDialogBox();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -967,6 +1037,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $objSportsAreas = SportsAreas::load($this->intId);
 
@@ -1032,6 +1104,8 @@
 
             $this->displayHelper();
             $this->txtSportsArea->Text = '';
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1054,10 +1128,10 @@
             $this->btnGoToEvents->Enabled = true;
             $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
             $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
             $this->dtgSportsAreas->Paginator->Enabled = true;
             $this->dtgSportsAreas->removeCssClass('disabled');
             $this->dtgSportsAreas->refresh();
-
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1079,6 +1153,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             if (!empty($_SESSION['sports_areas_id']) || !empty($_SESSION['sports_areas_group'])) {
                 Application::redirect('sports_calendar_edit.php?id=' . $_SESSION['sports_areas_id'] . '&group=' . $_SESSION['sports_areas_group']);

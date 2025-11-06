@@ -3,6 +3,7 @@
     use QCubed as Q;
     use QCubed\Bootstrap as Bs;
     use QCubed\Control\Panel;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Event\Click;
     use QCubed\Action\AjaxControl;
     use QCubed\Action\Terminate;
@@ -10,6 +11,7 @@
     use QCubed\Event\EnterKey;
     use QCubed\Event\EscapeKey;
     use QCubed\Exception\Caller;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Action\ActionParams;
     use QCubed\Project\Application;
@@ -50,6 +52,9 @@
         protected string $strSavingButtonId;
 
         protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected object $objMetadata;
 
         protected string $strTemplate = 'HomePageMetaDataPanel.tpl.php';
@@ -76,6 +81,21 @@
             $this->intId = Application::instance()->context()->queryStringItem('id');
             $this->objMetadata = Metadata::loadByIdFromMetadata($this->intId);
 
+            /**
+             * NOTE: if the user_id is stored in session (e.g., if a User is logged in), as well, for example,
+             * checking against user session etc.
+             *
+             * Must save something here $this->objArticle->setUserId(logged user session);
+             * or something similar...
+             *
+             * Options to do this are left to the developer.
+             **/
+
+            // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
+            // For example, John Doe is a logged user with his session
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
+            $this->objUser = User::load($this->intLoggedUserId);
+
             $this->createInputs();
             $this->createButtons();
             $this->createToastr();
@@ -83,6 +103,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and creates input controls for metadata management, including alerts, labels, and textboxes for keywords, descriptions, and authors.
@@ -107,7 +139,7 @@
 
             $this->txtKeywords = new Bs\TextBox($this);
             $this->txtKeywords->Text = $this->objMetadata->Keywords;
-            $this->txtKeywords->TextMode = Q\Control\TextBoxBase::MULTI_LINE;
+            $this->txtKeywords->TextMode = TextBoxBase::MULTI_LINE;
             $this->txtKeywords->Rows = 3;
             $this->txtKeywords->addWrapperCssClass('center-button');
             $this->txtKeywords->AddAction(new EnterKey(), new AjaxControl($this,'btnMenuSave_Click'));
@@ -130,7 +162,7 @@
 
             $this->txtDescription = new Bs\TextBox($this);
             $this->txtDescription->Text = $this->objMetadata->Description;
-            $this->txtDescription->TextMode = Q\Control\TextBoxBase::MULTI_LINE;
+            $this->txtDescription->TextMode = TextBoxBase::MULTI_LINE;
             $this->txtDescription->Rows = 3;
             $this->txtDescription->addWrapperCssClass('center-button');
             $this->txtDescription->AddAction(new EnterKey(), new AjaxControl($this,'btnMenuSave_Click'));
@@ -308,6 +340,8 @@
             }
 
             $this->dlgToastr->notify();
+
+            $this->userOptions();
         }
 
         /**
@@ -336,6 +370,7 @@
             $this->objMetadata->setAuthor($this->txtAuthor->Text);
             $this->objMetadata->save();
 
+            $this->userOptions();
             $this->redirectToListPage();
         }
 
@@ -358,6 +393,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             if ($this->objMetadata->getKeywords() || $this->objMetadata->getDescription() || $this->objMetadata->getAuthor()) {
                 $this->dlgModal1->showDialogBox();
             }
@@ -376,6 +413,8 @@
          */
         public function deletedItem_Click(ActionParams $params): void
         {
+            $this->userOptions();
+
             $this->objMetadata->setKeywords(null);
             $this->objMetadata->setDescription(null);
             $this->objMetadata->setAuthor(null);
@@ -412,6 +451,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->redirectToListPage();
         }

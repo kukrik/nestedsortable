@@ -1,12 +1,15 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
     use QCubed\Project\Application;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\Change;
@@ -32,8 +35,9 @@
     class VideosSetting extends Panel
     {
         protected ?object $lstItemsPerPageByAssignedUserObject = null;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
+
 
         public Bs\Modal $dlgModal1;
 
@@ -49,9 +53,9 @@
         public Bs\Button $btnCancel;
         public Bs\Button $btnGoToVideos;
 
-        protected object $objUser;
-        protected int $intLoggedUserId;
         protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
 
         protected object $objMenuContent;
         protected ?object $objGroupTitleCondition = null;
@@ -70,6 +74,7 @@
          * @param string|null $strControlId Optional control ID for identifying this component.
          *
          * @return void
+         * @throws DateMalformedStringException
          * @throws Caller
          */
         public function __construct(mixed $objParentObject, ?string $strControlId = null)
@@ -94,7 +99,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 1;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createItemsPerPage();
@@ -110,6 +115,18 @@
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
+
+        /**
          * Initializes and configures the videos groups data grid.
          *
          * @return void
@@ -123,7 +140,8 @@
             $this->dtgVideosGroups_MakeEditable();
             $this->dtgVideosGroups->RowParamsCallback = [$this, "dtgVideosGroups_GetRowParams"];
             $this->dtgVideosGroups->SortColumnIndex = 0;
-            $this->dtgVideosGroups->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum();
+            $this->dtgVideosGroups->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgVideosGroups->UseAjax = true;
         }
 
         /**
@@ -172,6 +190,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->intId = intval($params->ActionParameter);
             $objVideosGroups = VideosSettings::load($this->intId);
 
@@ -185,11 +205,7 @@
                 $this->btnGoToVideos->Enabled = false;
             }
 
-            $this->dtgVideosGroups->addCssClass('disabled');
-            $this->txtVideosGroup->Display = true;
-            $this->txtVideosTitle->Display = true;
-            $this->btnSave->Display = true;
-            $this->btnCancel->Display = true;
+            $this->disableInputs();
         }
 
         /**
@@ -222,10 +238,6 @@
             $this->dtgVideosGroups->Paginator->LabelForPrevious = t('Previous');
             $this->dtgVideosGroups->Paginator->LabelForNext = t('Next');
 
-            $this->dtgVideosGroups->ItemsPerPage = 10;
-            $this->dtgVideosGroups->SortColumnIndex = 0;
-            $this->dtgVideosGroups->UseAjax = true;
-
             $this->addFilterActions();
         }
 
@@ -247,9 +259,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -265,20 +277,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -290,11 +303,14 @@
          * the data grid to reflect the changes.
          *
          * @param ActionParams $params The parameters received from the change action, providing context about the event.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgVideosGroups->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgVideosGroups->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgVideosGroups->refresh();
         }
 
@@ -314,7 +330,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
 
@@ -337,6 +353,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -344,6 +361,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgVideosGroups->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -376,10 +394,12 @@
          * updated filter conditions.
          *
          * @return void This method does not return any value.
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgVideosGroups->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -459,7 +479,7 @@
             $this->txtVideosGroup = new Bs\TextBox($this);
             $this->txtVideosGroup->Placeholder = t('videos group');
             $this->txtVideosGroup->ActionParameter = $this->txtVideosGroup->ControlId;
-            $this->txtVideosGroup->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtVideosGroup->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
             $this->txtVideosGroup->setHtmlAttribute('autocomplete', 'off');
             $this->txtVideosGroup->setCssStyle('float', 'left');
             $this->txtVideosGroup->setCssStyle('margin-right', '10px');
@@ -469,7 +489,7 @@
             $this->txtVideosTitle = new Bs\TextBox($this);
             $this->txtVideosTitle->Placeholder = t('Videos group title');
             $this->txtVideosTitle->ActionParameter = $this->txtVideosTitle->ControlId;
-            $this->txtVideosTitle->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtVideosTitle->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
 
             $this->txtVideosTitle->AddAction(new EnterKey(), new AjaxControl($this, 'btnSave_Click'));
             $this->txtVideosTitle->addAction(new EnterKey(), new Terminate());
@@ -512,6 +532,7 @@
          * and a close button.
          *
          * @return void This method does not return any value.
+         * @throws Caller
          */
         public function createModals(): void
         {
@@ -570,6 +591,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $objVideosGroup = VideosSettings::load($this->intId);
             $objSelectedGroup = VideosSettings::selectedByIdFromVideosSettings($this->intId);
             $objMenuContent = MenuContent::load($objSelectedGroup->getMenuContentId());
@@ -579,7 +602,7 @@
 
             $objVideosGroup->setTitle($this->txtVideosTitle->Text);
             $objVideosGroup->setTitleSlug($objMenuContent->getRedirectUrl());
-            $objVideosGroup->setPostUpdateDate(Q\QDateTime::Now());
+            $objVideosGroup->setPostUpdateDate(QDateTime::now());
             $objVideosGroup->setAssignedEditorsNameById($this->intLoggedUserId);
             $objVideosGroup->save();
 
@@ -592,13 +615,8 @@
                 $this->btnGoToVideos->Enabled = true;
             }
 
-            $this->txtVideosGroup->Display = false;
-            $this->txtVideosTitle->Display = false;
-            $this->btnSave->Display = false;
-            $this->btnCancel->Display = false;
-
             $this->dtgVideosGroups->refresh();
-            $this->dtgVideosGroups->removeCssClass('disabled');
+            $this->enableInputs();
             $this->dlgToast1->notify();
         }
 
@@ -614,6 +632,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnCancel_Click(ActionParams $params): void
         {
@@ -623,18 +642,65 @@
                 return;
             }
 
+            $this->userOptions();
+
             if (!empty($_SESSION['videos_edit_group']) || (!empty($_SESSION['videos']) || !empty($_SESSION['group']))) {
                 $this->btnGoToVideos->Display = true;
                 $this->btnGoToVideos->Enabled = true;
             }
 
+            $this->enableInputs();
+            $this->txtVideosGroup->Text = '';
+            $this->txtVideosTitle->Text = '';
+        }
+
+        /**
+         * Enables input fields and interactive elements within the form.
+         *
+         * This method activates specific UI components, including text fields, buttons,
+         * filters, and the paginator, making them available for user interaction. Some
+         * elements, such as gallery-related fields and save/cancel buttons, are hidden
+         * or disabled.
+         *
+         * @return void
+         */
+        public function enableInputs(): void
+        {
             $this->txtVideosGroup->Display = false;
             $this->txtVideosTitle->Display = false;
             $this->btnSave->Display = false;
             $this->btnCancel->Display = false;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
+            $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
+            $this->dtgVideosGroups->Paginator->Enabled = true;
+
             $this->dtgVideosGroups->removeCssClass('disabled');
-            $this->txtVideosGroup->Text = '';
-            $this->txtVideosTitle->Text = '';
+        }
+
+        /**
+         * Disables specific input elements and applies a disabled style to the videos group data grid.
+         *
+         * This method sets the `Enabled` property of specific input controls to `false`,
+         * indicating that those inputs are no longer interactable. Additionally, the data grid
+         * for gallery groups is styled with a disabled CSS class for visual feedback.
+         *
+         * @return void This method does not return any value.
+         */
+        public function disableInputs(): void
+        {
+            $this->txtVideosGroup->Display = true;
+            $this->txtVideosTitle->Display = true;
+            $this->btnSave->Display = true;
+            $this->btnCancel->Display = true;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = false;
+            $this->txtFilter->Enabled = false;
+            $this->btnClearFilters->Enabled = false;
+            $this->dtgVideosGroups->Paginator->Enabled = false;
+
+            $this->dtgVideosGroups->addCssClass('disabled');
         }
 
         /**

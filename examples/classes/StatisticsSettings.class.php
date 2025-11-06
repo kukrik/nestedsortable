@@ -1,12 +1,15 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
     use QCubed\Project\Application;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\Change;
@@ -33,8 +36,8 @@
     class StatisticsSetting extends Panel
     {
         protected ?object $lstItemsPerPageByAssignedUserObject = null;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         public Bs\Modal $dlgModal1;
 
@@ -50,9 +53,9 @@
         public Bs\Button $btnCancel;
         public Bs\Button $btnGoToStatistics;
 
-        protected object $objUser;
-        protected int $intLoggedUserId;
         protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
 
         protected object $objMenuContent;
         protected ?object $objGroupTitleCondition = null;
@@ -102,7 +105,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 1;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createItemsPerPage();
@@ -116,6 +119,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Creates and initializes the StatisticsGroups data grid.
@@ -137,7 +152,8 @@
             $this->dtgStatisticsGroups->RowParamsCallback = [$this, "dtgStatisticsGroups_GetRowParams"];
             $this->dtgStatisticsGroups->SortColumnIndex = 0;
             $this->dtgStatisticsGroups->SortDirection = -1;
-            $this->dtgStatisticsGroups->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum();
+            $this->dtgStatisticsGroups->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgStatisticsGroups->UseAjax = true;
         }
 
         /**
@@ -185,6 +201,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $this->intId = intval($params->ActionParameter);
             $objStatisticsGroups = StatisticsSettings::load($this->intId);
 
@@ -198,11 +216,7 @@
                 $this->btnGoToStatistics->Enabled = false;
             }
 
-            $this->dtgStatisticsGroups->addCssClass('disabled');
-            $this->txtStatisticsGroup->Display = true;
-            $this->txtStatisticsTitle->Display = true;
-            $this->btnSave->Display = true;
-            $this->btnCancel->Display = true;
+            $this->disableInputs();
         }
 
         /**
@@ -242,10 +256,6 @@
             $this->dtgStatisticsGroups->Paginator->LabelForPrevious = t('Previous');
             $this->dtgStatisticsGroups->Paginator->LabelForNext = t('Next');
 
-            $this->dtgStatisticsGroups->ItemsPerPage = 10;
-            $this->dtgStatisticsGroups->SortColumnIndex = 0;
-            $this->dtgStatisticsGroups->UseAjax = true;
-
             $this->addFilterActions();
         }
 
@@ -270,9 +280,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -288,20 +298,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -310,11 +321,14 @@
          * based on the selected value from the assigned user object list and refreshes the table.
          *
          * @param ActionParams $params The action parameters passed during the call, typically related to the event triggering the method.
+         *
          * @return void This method does not return any value.
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgStatisticsGroups->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgStatisticsGroups->ItemsPerPage =ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgStatisticsGroups->refresh();
         }
 
@@ -334,7 +348,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
 
@@ -357,6 +371,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -364,6 +379,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgStatisticsGroups->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -395,10 +411,12 @@
          * to reflect new filter criteria, ensuring accurate and up-to-date data.
          *
          * @return void
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgStatisticsGroups->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -479,7 +497,7 @@
             $this->txtStatisticsGroup = new Bs\TextBox($this);
             $this->txtStatisticsGroup->Placeholder = t('Statistics group');
             $this->txtStatisticsGroup->ActionParameter = $this->txtStatisticsGroup->ControlId;
-            $this->txtStatisticsGroup->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtStatisticsGroup->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
             $this->txtStatisticsGroup->setHtmlAttribute('autocomplete', 'off');
             $this->txtStatisticsGroup->setCssStyle('float', 'left');
             $this->txtStatisticsGroup->setCssStyle('margin-right', '10px');
@@ -489,7 +507,7 @@
             $this->txtStatisticsTitle = new Bs\TextBox($this);
             $this->txtStatisticsTitle->Placeholder = t('Statistics group title');
             $this->txtStatisticsTitle->ActionParameter = $this->txtStatisticsTitle->ControlId;
-            $this->txtStatisticsTitle->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtStatisticsTitle->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
 
             $this->txtStatisticsTitle->AddAction(new EnterKey(), new AjaxControl($this, 'btnSave_Click'));
             $this->txtStatisticsTitle->addAction(new EnterKey(), new Terminate());
@@ -590,6 +608,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $objGroup = StatisticsSettings::load($this->intId);
             $objSelectedGroup = StatisticsSettings::selectedByIdFromStatisticsSettings($this->intId);
             $objMenuContent = MenuContent::load($objSelectedGroup->getMenuContentId());
@@ -598,7 +618,7 @@
             $objMenuContent->updateMenuContent($this->txtStatisticsTitle->Text, $objGroup->getTitleSlug());
 
             $objGroup->setTitle($this->txtStatisticsTitle->Text);
-            $objGroup->setPostUpdateDate(Q\QDateTime::now());
+            $objGroup->setPostUpdateDate(QDateTime::now());
             $objGroup->setAssignedEditorsNameById($this->intLoggedUserId);
             $objGroup->save();
 
@@ -611,13 +631,8 @@
                 $this->btnGoToStatistics->Enabled = true;
             }
 
-            $this->txtStatisticsGroup->Display = false;
-            $this->txtStatisticsTitle->Display = false;
-            $this->btnSave->Display = false;
-            $this->btnCancel->Display = false;
-
             $this->dtgStatisticsGroups->refresh();
-            $this->dtgStatisticsGroups->removeCssClass('disabled');
+            $this->enableInputs();
             $this->dlgToast1->notify();
         }
 
@@ -632,6 +647,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnCancel_Click(ActionParams $params): void
         {
@@ -641,18 +657,65 @@
                 return;
             }
 
+            $this->userOptions();
+
             if (!empty($_SESSION['statistics_edit_group']) || (!empty($_SESSION['statistics']) || !empty($_SESSION['group']))) {
                 $this->btnGoToStatistics->Display = true;
                 $this->btnGoToStatistics->Enabled = true;
             }
 
+            $this->enableInputs();
+            $this->txtStatisticsGroup->Text = '';
+            $this->txtStatisticsTitle->Text = '';
+        }
+
+        /**
+         * Enables input fields and interactive elements within the form.
+         *
+         * This method activates specific UI components, including text fields, buttons,
+         * filters, and the paginator, making them available for user interaction. Some
+         * elements, such as gallery-related fields and save/cancel buttons, are hidden
+         * or disabled.
+         *
+         * @return void
+         */
+        public function enableInputs(): void
+        {
             $this->txtStatisticsGroup->Display = false;
             $this->txtStatisticsTitle->Display = false;
             $this->btnSave->Display = false;
             $this->btnCancel->Display = false;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
+            $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
+            $this->dtgStatisticsGroups->Paginator->Enabled = true;
+
             $this->dtgStatisticsGroups->removeCssClass('disabled');
-            $this->txtStatisticsGroup->Text = '';
-            $this->txtStatisticsTitle->Text = '';
+        }
+
+        /**
+         * Disables specific input elements and applies a disabled style to the statistics group data grid.
+         *
+         * This method sets the `Enabled` property of specific input controls to `false`,
+         * indicating that those inputs are no longer interactable. Additionally, the data grid
+         * for gallery groups is styled with a disabled CSS class for visual feedback.
+         *
+         * @return void This method does not return any value.
+         */
+        public function disableInputs(): void
+        {
+            $this->txtStatisticsGroup->Display = true;
+            $this->txtStatisticsTitle->Display = true;
+            $this->btnSave->Display = true;
+            $this->btnCancel->Display = true;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = false;
+            $this->txtFilter->Enabled = false;
+            $this->btnClearFilters->Enabled = false;
+            $this->dtgStatisticsGroups->Paginator->Enabled = false;
+
+            $this->dtgStatisticsGroups->addCssClass('disabled');
         }
 
         /**

@@ -1,11 +1,14 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\Change;
@@ -33,8 +36,8 @@
     class VideosListPanel extends Panel
     {
         protected Q\Plugin\Select2 $lstItemsPerPageByAssignedUserObject;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToast1;
         protected Q\Plugin\Toastr $dlgToast2;
@@ -56,8 +59,9 @@
         public VideosTable $dtgVideos;
         public Bs\Button $btnBack;
 
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected ?object $objGroupTitleCondition = null;
         protected ?array $objGroupTitleClauses = null;
 
@@ -98,7 +102,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 3;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createInputs();
@@ -113,6 +117,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Resets the state of elements by hiding specific UI components.
@@ -145,7 +161,7 @@
             $this->lstTargetGroup->MinimumResultsForSearch = -1;
             $this->lstTargetGroup->Theme = 'web-vauu';
             $this->lstTargetGroup->Width = '100%';
-            $this->lstTargetGroup->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstTargetGroup->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstTargetGroup->addItem(t('- Select one target group -'), null, true);
 
             $objTargetGroups = VideosSettings::loadAll(QQ::Clause(QQ::orderBy(QQN::VideosSettings()->Id)));
@@ -304,7 +320,7 @@
             $this->lstVideosLocked->MinimumResultsForSearch = -1;
             $this->lstVideosLocked->Theme = 'web-vauu';
             $this->lstVideosLocked->Width = '100%';
-            $this->lstVideosLocked->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstVideosLocked->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstVideosLocked->addItem(t('- Select one video group -'), null, true);
 
             $objGroups = VideosSettings::queryArray(
@@ -343,6 +359,8 @@
 
             $this->btnMove->Enabled = false;
             $this->dtgVideos->addCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -373,6 +391,8 @@
                 $this->lstVideosLocked->removeCssClass('has-error');
                 $this->lstTargetGroup->focus();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -404,6 +424,8 @@
             } else {
                 $this->lstTargetGroup->removeCssClass('has-error');
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -436,6 +458,8 @@
             $this->lstTargetGroup->refresh();
 
             $this->dtgVideos->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -456,6 +480,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->dlgModal1->hideDialogBox();
             $this->videosTransferOperations();
@@ -486,13 +512,13 @@
             $objVideosSettings = VideosSettings::loadById($objLockedGroup->getId());
             $objVideosSettings->setVideosLocked(0);
             $objVideosSettings->setAssignedEditorsNameById($this->intLoggedUserId);
-            $objVideosSettings->setPostUpdateDate(Q\QDateTime::now());
+            $objVideosSettings->setPostUpdateDate(QDateTime::now());
             $objVideosSettings->save();
 
             $objVideosSettings = VideosSettings::loadById($objTargetGroup->getId());
             $objVideosSettings->setVideosLocked(1);
             $objVideosSettings->setAssignedEditorsNameById($this->intLoggedUserId);
-            $objVideosSettings->setPostUpdateDate(Q\QDateTime::now());
+            $objVideosSettings->setPostUpdateDate(QDateTime::now());
             $objVideosSettings->save();
 
             foreach ($objVideosGroupArray as $objVideosGroup) {
@@ -572,6 +598,8 @@
             $this->lstTargetGroup->refresh();
 
             $this->dtgVideos->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -591,7 +619,7 @@
                 return;
             }
 
-            Application::redirect('menu_manager.php');
+            Application::executeJavaScript("history.go(-1);");
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -611,8 +639,8 @@
             $this->dtgVideos->RowParamsCallback = [$this, "dtgVideos_GetRowParams"];
             $this->dtgVideos->SortColumnIndex = 5;
             //$this->dtgVideos->SortDirection = -1;
+            $this->dtgVideos->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
             $this->dtgVideos->UseAjax = true;
-            $this->dtgVideos->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum(); //__toString();
         }
 
         /**
@@ -664,6 +692,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $intId = intval($params->ActionParameter);
             $objVideos = VideosSettings::loadById($intId);
             $intGroup = $objVideos->getMenuContentId();
@@ -706,8 +736,6 @@
             $this->dtgVideos->PaginatorAlternate->LabelForPrevious = t('Previous');
             $this->dtgVideos->PaginatorAlternate->LabelForNext = t('Next');
 
-            $this->dtgVideos->ItemsPerPage = 10;
-
             $this->addFilterActions();
         }
 
@@ -728,9 +756,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -745,20 +773,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -768,11 +797,14 @@
          * page of the data grid and refreshes it to reflect the updated pagination settings.
          *
          * @param ActionParams $params The action parameters containing details of the change event.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgVideos->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgVideos->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgVideos->refresh();
         }
 
@@ -788,7 +820,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
 
@@ -811,6 +843,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -818,6 +851,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgVideos->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -845,10 +879,12 @@
          * This method updates the displayed data in the data grid to reflect the current filter criteria.
          *
          * @return void
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgVideos->refresh();
+            $this->userOptions();
         }
 
         /**

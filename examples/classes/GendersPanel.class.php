@@ -3,8 +3,10 @@
     use QCubed as Q;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\CellClick;
@@ -37,6 +39,7 @@
         protected Q\Plugin\Toastr $dlgToastr7;
         protected Q\Plugin\Toastr $dlgToastr8;
         protected Q\Plugin\Toastr $dlgToastr9;
+        protected Q\Plugin\Toastr $dlgToastr10;
 
         public Bs\Modal $dlgModal1;
         public Bs\Modal $dlgModal2;
@@ -66,11 +69,13 @@
         public Bs\Label $txtUsersAsEditors;
 
         public GendersTable $dtgGenders;
+        public Bs\Button $btnRefresh;
 
         protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected bool $blnEditMode = true;
-        protected object $objUser;
-        protected int $intLoggedUserId;
         protected ?object $objGender = null;
 
         protected string $strTemplate = 'GendersPanel.tpl.php';
@@ -111,7 +116,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 3;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->dtgGenders_Create();
@@ -123,6 +128,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Creates and initializes the Genders data table.
@@ -189,6 +206,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->intId = intval($params->ActionParameter);
             $this->objGender = Genders::load($this->intId);
@@ -270,7 +289,7 @@
             $this->txtName = new Bs\TextBox($this);
             $this->txtName->Placeholder = t('Gender name');
             $this->txtName->setHtmlAttribute('autocomplete', 'off');
-            $this->txtName->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtName->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
             $this->txtName->AddAction(new EnterKey(), new AjaxControl($this, 'btnSave_Click'));
             $this->txtName->addAction(new EnterKey(), new Terminate());
             $this->txtName->AddAction(new EscapeKey(), new AjaxControl($this, 'itemEscape_Click'));
@@ -335,6 +354,15 @@
          */
         public function createButtons(): void
         {
+            $this->btnRefresh = new Bs\Button($this);
+            $this->btnRefresh->Tip = true;
+            $this->btnRefresh->ToolTip = t('Refresh tables');
+            $this->btnRefresh->Glyph = 'fa fa-refresh';
+            $this->btnRefresh->CssClass = 'btn btn-darkblue';
+            $this->btnRefresh->CausesValidation = false;
+            $this->btnRefresh->setCssStyle('margin-left', '15px');
+            $this->btnRefresh->addAction(new Click(), new AjaxControl($this, 'btnRefresh_Click'));
+
             $this->btnAddNewGender = new Bs\Button($this);
             $this->btnAddNewGender->Text = t('Add a new gender');
             $this->btnAddNewGender->CssClass = 'btn btn-orange';
@@ -426,6 +454,12 @@
             $this->dlgToastr9->PositionClass = Q\Plugin\ToastrBase::POSITION_TOP_CENTER;
             $this->dlgToastr9->Message = t('<strong>Well done!</strong> This gender with data is now inactive!');
             $this->dlgToastr9->ProgressBar = true;
+
+            $this->dlgToastr10 = new Q\Plugin\Toastr($this);
+            $this->dlgToastr10->AlertType = Q\Plugin\ToastrBase::TYPE_SUCCESS;
+            $this->dlgToastr10->PositionClass = Q\Plugin\ToastrBase::POSITION_TOP_CENTER;
+            $this->dlgToastr10->Message = t('The table has been updated!');
+            $this->dlgToastr10->ProgressBar = true;
         }
 
         /**
@@ -493,6 +527,32 @@
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         /**
+         * Handles the click event of the refresh button.
+         *
+         * This method verifies the CSRF token for security purposes. If the token is invalid,
+         * it displays a dialog box and generates a new CSRF token. Upon successful verification,
+         * it proceeds to refresh the data grid and triggers a notification.
+         *
+         * @param ActionParams $params Encapsulates parameters related to the action, such as event-related data.
+         *
+         * @return void
+         * @throws Caller
+         * @throws RandomException
+         */
+        protected function btnRefresh_Click(ActionParams $params): void
+        {
+            if (!Application::verifyCsrfToken()) {
+                $this->dlgModal5->showDialogBox();
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                return;
+            }
+
+            $this->dtgGenders->refresh();
+
+            $this->dlgToastr10->notify();
+        }
+
+        /**
          * Handles the event when the "Add New Gender" button is clicked.
          *
          * This method modifies the UI to allow the user to add a new gender entry.
@@ -512,6 +572,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             Application::executeJavaScript("
                 $('.setting-wrapper').removeClass('hidden');
@@ -577,6 +639,8 @@
                     $this->dlgModal4->showDialogBox();
                 }
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -645,7 +709,7 @@
                         $objGender = new Genders();
                         $objGender->setName($this->txtName->Text);
                         $objGender->setStatus($this->lstStatus->SelectedValue);
-                        $objGender->setPostDate(Q\QDateTime::now());
+                        $objGender->setPostDate(QDateTime::now());
                         $objGender->setAssignedByUser($this->intLoggedUserId);
                         $objGender->setAuthor($objGender->getAssignedByUserObject());
                         $objGender->save();
@@ -673,6 +737,8 @@
                     $this->dlgToastr5->notify();
                 }
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -695,6 +761,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             Application::executeJavaScript("
                 $('.setting-wrapper').addClass('hidden');
@@ -751,7 +819,7 @@
          */
         protected function updateAndValidateAgeGroups(object $objGender): void
         {
-            $objGender->setPostUpdateDate(Q\QDateTime::now());
+            $objGender->setPostUpdateDate(QDateTime::now());
             $objGender->setAssignedEditorsNameById($this->intLoggedUserId);
             $objGender->save();
 
@@ -782,6 +850,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             if ($this->objGender->getIsLocked() == 1) {
                 $this->dlgModal1->showDialogBox();
@@ -815,6 +885,8 @@
             $this->dtgGenders->removeCssClass('disabled');
 
             $this->refreshDisplay($this->objGender->getId());
+
+            $this->userOptions();
         }
 
         /**

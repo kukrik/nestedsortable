@@ -1,10 +1,13 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\Change;
@@ -30,8 +33,8 @@
     class NewsListPanel extends Panel
     {
         protected Q\Plugin\Select2 $lstItemsPerPageByAssignedUserObject;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToast1;
         protected Q\Plugin\Toastr $dlgToast2;
@@ -61,8 +64,10 @@
         public Bs\Button $btnLockedCancel;
         public Bs\Button $btnBack;
 
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+        protected object $objPortlet;
+
         protected ?object $objGroupTitleCondition = null;
         protected ?array $objGroupTitleClauses = null;
 
@@ -100,8 +105,9 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 3;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
+            $this->objPortlet = Portlet::load(2);
 
             $this->createInputs();
             $this->createButtons();
@@ -116,6 +122,37 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
+
+        /**
+         * Updates the portlet with the total count of news items and the latest modification date.
+         * If news items are available, it sets the total count, assigns the current date and time
+         * as the last updated date, and saves these changes to the portlet.
+         *
+         * @return void
+         * @throws Caller
+         */
+        private function updatePortlet(): void
+        {
+            $objPage = News::countAll();
+
+            if ($objPage) {
+                $this->objPortlet->setTotalValue($objPage);
+                $this->objPortlet->setLastDate(QDateTime::now());
+                $this->objPortlet->save();
+            }
+        }
 
         /**
          * Initializes and configures input elements for the form, including a text box for the title and a select list
@@ -136,7 +173,7 @@
             $this->lstTargetGroup->MinimumResultsForSearch = -1;
             $this->lstTargetGroup->Theme = 'web-vauu';
             $this->lstTargetGroup->Width = '100%';
-            $this->lstTargetGroup->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstTargetGroup->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstTargetGroup->addItem(t('- Select one target group -'), null, true);
 
             $objTargetGroups = NewsSettings::loadAll(QQ::Clause(QQ::orderBy(QQN::NewsSettings()->Id)));
@@ -338,6 +375,7 @@
 
             $this->updateLockStatus();
             $this->disableInputs();
+            $this->userOptions();
 
             $countByIsReserved = NewsSettings::countByIsReserved(1);
 
@@ -348,7 +386,7 @@
             $this->lstGroupTitle->MinimumResultsForSearch = -1;
             $this->lstGroupTitle->Theme = 'web-vauu';
             $this->lstGroupTitle->Width = '100%';
-            $this->lstGroupTitle->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstGroupTitle->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstGroupTitle->addItem(t('- Select one newsgroup -'), null, true);
 
             $objGroups = NewsSettings::loadAll(QQ::Clause(QQ::orderBy(QQN::NewsSettings()->Id)));
@@ -404,12 +442,13 @@
 
             $this->updateLockStatus();
             $this->disableInputs();
+            $this->userOptions();
 
             $this->lstNewsLocked = new Q\Plugin\Select2($this);
             $this->lstNewsLocked->MinimumResultsForSearch = -1;
             $this->lstNewsLocked->Theme = 'web-vauu';
             $this->lstNewsLocked->Width = '100%';
-            $this->lstNewsLocked->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstNewsLocked->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstNewsLocked->addItem(t('- Select one newsgroup -'), null, true);
 
             $objGroups = NewsSettings::queryArray(
@@ -572,6 +611,8 @@
 
             $this->enableInputs();
             $this->dtgNews->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -599,6 +640,8 @@
             $this->elementsReset();
             $this->btnAddNews->Enabled = true;
             $this->btnMove->Enabled = true;
+
+            $this->userOptions();
         }
 
         /**
@@ -711,7 +754,7 @@
             } else if ($this->lstGroupTitle->SelectedValue && $this->txtTitle->Text) {
 
                 $objNews = new News();
-                $objNews->setPostDate(Q\QDateTime::Now());
+                $objNews->setPostDate(QDateTime::now());
                 $objNews->setTitle($this->txtTitle->Text);
                 $objNews->setMenuContentId($objNewsSettings->getMenuContentId());
                 $objNews->setNewsGroupTitleId($objNewsSettings->getId());
@@ -721,6 +764,9 @@
                 $objNews->setAssignedByUser($this->objUser->Id);
                 $objNews->setAuthor($objNews->getAssignedByUserObject());
                 $objNews->save();
+
+                $this->userOptions();
+                $this->updatePortlet();
 
                 $objFrontendLinks = new FrontendLinks();
                 $objFrontendLinks->setLinkedId($objNews->getId());
@@ -786,6 +832,8 @@
 
             $this->enableInputs();
             $this->dtgNews->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -832,6 +880,8 @@
 
             $this->enableInputs();
             $this->dtgNews->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -851,7 +901,9 @@
                 return;
             }
 
-            Application::redirect('menu_manager.php');
+            $this->userOptions();
+
+            Application::executeJavaScript("history.go(-1);");
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -874,8 +926,8 @@
             $this->dtgNews->RowParamsCallback = [$this, "dtgNews_GetRowParams"];
             //$this->dtgNews->SortColumnIndex = 5;
             //$this->dtgNews->SortDirection = -1;
+            $this->dtgNews->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
             $this->dtgNews->UseAjax = true;
-            $this->dtgNews->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum(); //__toString();
         }
 
         /**
@@ -928,6 +980,8 @@
             $objNews = News::loadById($intNewsId);
             $intGroup = $objNews->getMenuContentId();
 
+            $this->userOptions();
+
             Application::redirect('news_edit.php' . '?id=' . $intNewsId . '&group=' . $intGroup);
         }
 
@@ -965,8 +1019,6 @@
             $this->dtgNews->PaginatorAlternate->LabelForPrevious = t('Previous');
             $this->dtgNews->PaginatorAlternate->LabelForNext = t('Next');
 
-            $this->dtgNews->ItemsPerPage = 10;
-
             $this->addFilterActions();
         }
 
@@ -984,9 +1036,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -999,20 +1051,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -1021,11 +1074,14 @@
          * dropdown list.
          *
          * @param ActionParams $params The parameters associated with the change action.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgNews->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgNews->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgNews->refresh();
         }
 
@@ -1041,7 +1097,7 @@
         {
             $this->txtFilter = new Bs\TextBox($this);
             $this->txtFilter->Placeholder = t('Search...');
-            $this->txtFilter->TextMode = Q\Control\TextBoxBase::SEARCH;
+            $this->txtFilter->TextMode = TextBoxBase::SEARCH;
             $this->txtFilter->setHtmlAttribute('autocomplete', 'off');
             $this->txtFilter->addCssClass('search-box');
 
@@ -1051,7 +1107,7 @@
             $this->lstGroups->MinimumResultsForSearch = -1;
             $this->lstGroups->Theme = 'web-vauu';
             $this->lstGroups->Width = '100%';
-            $this->lstGroups->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstGroups->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstGroups->addItem(t('- Search newsgroup -'), null, true);
 
             $objGroups = NewsSettings::queryArray(
@@ -1081,7 +1137,7 @@
             $this->lstChanges->MinimumResultsForSearch = -1;
             $this->lstChanges->Theme = 'web-vauu';
             $this->lstChanges->Width = '100%';
-            $this->lstChanges->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstChanges->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstChanges->addItem(t('- Search change -'), null, true);
 
             $objChanges = NewsChanges::queryArray(
@@ -1106,7 +1162,7 @@
             $this->lstCategories->MinimumResultsForSearch = -1;
             $this->lstCategories->Theme = 'web-vauu';
             $this->lstCategories->Width = '100%';
-            $this->lstCategories->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstCategories->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstCategories->addItem(t('- Search category -'), null, true);
 
             $objCategories = CategoryOfNews::queryArray(

@@ -1,10 +1,12 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Event\Click;
@@ -68,10 +70,11 @@
         public Bs\Label $txtUsersAsEditors;
 
         protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected bool $blnEditMode = true;
         protected ?object $objAgeCategoryGender = null;
-        protected object $objUser;
-        protected int $intLoggedUserId;
         protected array $errors = []; // Array for tracking errors
 
         protected string $strTemplate = 'GenderMappingPanel.tpl.php';
@@ -107,7 +110,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 2;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->dtgAgeCategoryGender_Create();
@@ -119,6 +122,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes the GenderMappingTable component and sets up its configuration.
@@ -179,6 +194,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->intId = intval($params->ActionParameter);
             $this->objAgeCategoryGender = AgeCategoryGender::load($this->intId);
@@ -262,7 +279,7 @@
             $this->lstAgeGroup->Theme = 'web-vauu';
             $this->lstAgeGroup->Width = '100%';
             $this->lstAgeGroup->setCssStyle('float', 'left');
-            $this->lstAgeGroup->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstAgeGroup->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstAgeGroup->addItem(t('- Select age group -'), null, true);
             $this->lstAgeGroup->addAction(new Change(), new AjaxControl($this, 'lstAgeGroup_Change'));
 
@@ -283,7 +300,7 @@
             $this->lstAthleteGender->Theme = 'web-vauu';
             $this->lstAthleteGender->Width = '100%';
             $this->lstAthleteGender->setCssStyle('float', 'left');
-            $this->lstAthleteGender->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstAthleteGender->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstAthleteGender->addItem(t('- Select age group -'), null, true);
             $this->lstAthleteGender->addAction(new Change(), new AjaxControl($this, 'lstAthleteGender_Change'));
 
@@ -304,7 +321,7 @@
             $this->lstGender->Theme = 'web-vauu';
             $this->lstGender->Width = '100%';
             $this->lstGender->setCssStyle('float', 'left');
-            $this->lstGender->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstGender->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstGender->addItem(t('- Select gender group -'), null, true);
             $this->lstGender->addAction(new Change(), new AjaxControl($this, 'lstGender_Change'));
 
@@ -377,14 +394,14 @@
             $this->btnRefresh->Glyph = 'fa fa-refresh';
             $this->btnRefresh->CssClass = 'btn btn-darkblue';
             $this->btnRefresh->CausesValidation = false;
-            $this->btnRefresh->setCssStyle('float', 'left');
-            $this->btnRefresh->setCssStyle('margin-right', '15px');
+            $this->btnRefresh->setCssStyle('margin-left', '15px');
             $this->btnRefresh->addAction(new Click(), new AjaxControl($this, 'btnRefresh_Click'));
 
             $this->btnAddNewMapping = new Bs\Button($this);
             $this->btnAddNewMapping->Text = t('Add new mapping');
             $this->btnAddNewMapping->CssClass = 'btn btn-orange';
             $this->btnAddNewMapping->CausesValidation = false;
+            //$this->btnAddNewMapping->setCssStyle('float', 'left');
             $this->btnAddNewMapping->addAction(new Click(), new AjaxControl($this, 'btnAddNewMapping_Click'));
 
             $this->btnSave = new Bs\Button($this);
@@ -579,6 +596,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             Application::executeJavaScript("
                 $('.setting-wrapper').removeClass('hidden');
                 $('.form-actions-wrapper').removeClass('hidden');
@@ -642,6 +661,8 @@
 
                 $this->updateAndValidateAgeGroups($this->objAgeCategoryGender);
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -691,6 +712,8 @@
 
                 $this->updateAndValidateAgeGroups($this->objAgeCategoryGender);
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -742,6 +765,8 @@
 
                 $this->updateAndValidateAgeGroups($this->objAgeCategoryGender);
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -791,6 +816,8 @@
 
                 $this->updateAndValidateAgeGroups($this->objAgeCategoryGender);
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -823,7 +850,7 @@
                     $objAgeCategoryGender->setStatus($this->lstStatus->SelectedValue);
                     $objAgeCategoryGender->setAssignedByUser($this->intLoggedUserId);
                     $objAgeCategoryGender->setAuthor($objAgeCategoryGender->getAssignedByUserObject());
-                    $objAgeCategoryGender->setPostDate(Q\QDateTime::Now());
+                    $objAgeCategoryGender->setPostDate(QDateTime::now());
                     $objAgeCategoryGender->save();
 
                     $objAgeGroup = AgeCategories::loadById($this->lstAgeGroup->SelectedValue);
@@ -850,6 +877,8 @@
                     $this->dlgModal5->showDialogBox();
                 }
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -869,6 +898,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             Application::executeJavaScript("
                 $('.setting-wrapper').addClass('hidden');
@@ -977,7 +1008,7 @@
             }
 
             if ($this->blnEditMode === true) {
-                $objAgeCategoryGender->setPostUpdateDate(Q\QDateTime::Now());
+                $objAgeCategoryGender->setPostUpdateDate(QDateTime::Now());
                 $objAgeCategoryGender->setAssignedEditorsNameById($this->intLoggedUserId);
                 $objAgeCategoryGender->save();
             }
@@ -1010,6 +1041,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             if ($this->objAgeCategoryGender->getIsLocked() == 1) {
                 $this->dlgModal1->showDialogBox();
@@ -1059,6 +1092,8 @@
             }
 
             $this->refreshDisplay($this->objAgeCategoryGender->getId());
+
+            $this->userOptions();
         }
 
         /**

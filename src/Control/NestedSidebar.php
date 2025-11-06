@@ -92,6 +92,7 @@
          *     ID may be assigned.
          *
          * @return void
+         * @throws \Exception
          * @throws Caller
          */
         public function __construct(ControlBase|FormBase $objParentObject, ?string $strControlId = null)

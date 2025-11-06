@@ -1,8 +1,10 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Event\Click;
     use QCubed\Event\Change;
     use QCubed\Action\AjaxControl;
@@ -136,7 +138,7 @@
 
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
-            $this->intLoggedUserId = 1;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
 
             $this->createInputs();
             $this->createButtons();
@@ -173,7 +175,7 @@
             $this->txtMenuText = new Bs\TextBox($this);
             $this->txtMenuText->Placeholder = t('Menu text');
             $this->txtMenuText->Text = $this->objMenuContent->MenuText;
-            $this->txtMenuText->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtMenuText->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
             $this->txtMenuText->addWrapperCssClass('center-button');
             $this->txtMenuText->Required = true;
 
@@ -196,7 +198,7 @@
             $this->lstContentTypes->MinimumResultsForSearch = -1;
             $this->lstContentTypes->Theme = 'web-vauu';
             $this->lstContentTypes->Width = '100%';
-            $this->lstContentTypes->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstContentTypes->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstContentTypes->addItems($this->lstContentTypeObject_GetItems(), true);
             $this->lstContentTypes->SelectedValue = $this->objMenuContent->ContentType;
             $this->lstContentTypes->setHtmlAttribute('required', 'required');
@@ -215,7 +217,7 @@
             $this->lstLinkTypes->MinimumResultsForSearch = -1;
             $this->lstLinkTypes->Theme = 'web-vauu';
             $this->lstLinkTypes->Width = '100%';
-            $this->lstLinkTypes->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstLinkTypes->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstLinkTypes->setHtmlAttribute('required', 'required');
             $this->lstLinkTypes->addItem(t('- Select link type -'), null, true);
             $this->lstLinkTypes->addItems([1 => t('Destination'), 2 => t('Attachment')]);

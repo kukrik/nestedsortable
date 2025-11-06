@@ -2,8 +2,10 @@
 
     use QCubed as Q;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Change;
     use QCubed\Action\AjaxControl;
@@ -181,6 +183,9 @@
         protected object $objDefaultAchievements;
         protected object $objDefaultLinks;
 
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected string $strTemplate = 'TemplateManager.tpl.php';
 
         /**
@@ -201,6 +206,9 @@
                 $objExc->IncrementOffset();
                 throw $objExc;
             }
+
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
+            $this->objUser = User::load($this->intLoggedUserId);
 
             $this->intDefaultHome = FrontendTemplateLocking::load(1);
             $this->intDefaultArticle = FrontendTemplateLocking::load(2);
@@ -269,6 +277,18 @@
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
+
+        /**
          * Initializes and configures the default home template label and selection components.
          *
          * This method sets up a label to display the text "Default home template" with specific
@@ -294,7 +314,7 @@
             $this->lstDefaultHomeTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultHomeTemplate->Theme = 'web-vauu';
             $this->lstDefaultHomeTemplate->Width = '100%';
-            $this->lstDefaultHomeTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultHomeTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultHomeTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultHomeTemplate->addItems($this->lstDefaultHomeTemplate_GetItems());
             $this->lstDefaultHomeTemplate->SelectedValue = $this->intDefaultHome->FrontendTemplateLockedId;
@@ -379,6 +399,8 @@
                 $this->lstDefaultHomeTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -409,7 +431,7 @@
             $this->lstDefaultArticleTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultArticleTemplate->Theme = 'web-vauu';
             $this->lstDefaultArticleTemplate->Width = '100%';
-            $this->lstDefaultArticleTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultArticleTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultArticleTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultArticleTemplate->addItems($this->lstDefaultArticleTemplate_GetItems());
             $this->lstDefaultArticleTemplate->SelectedValue = $this->intDefaultArticle->FrontendTemplateLockedId;
@@ -497,6 +519,8 @@
                 $this->lstDefaultArticleTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -527,7 +551,7 @@
             $this->lstDefaultNewsListTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultNewsListTemplate->Theme = 'web-vauu';
             $this->lstDefaultNewsListTemplate->Width = '100%';
-            $this->lstDefaultNewsListTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultNewsListTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultNewsListTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultNewsListTemplate->addItems($this->lstDefaultNewsListTemplate_GetItems());
             $this->lstDefaultNewsListTemplate->SelectedValue = $this->intDefaultNewsList->FrontendTemplateLockedId;
@@ -614,6 +638,8 @@
                 $this->lstDefaultNewsListTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -644,7 +670,7 @@
             $this->lstDefaultNewsTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultNewsTemplate->Theme = 'web-vauu';
             $this->lstDefaultNewsTemplate->Width = '100%';
-            $this->lstDefaultNewsTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultNewsTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultNewsTemplate->addItem(t('- Select one type -'), null, true);
             $this->lstDefaultNewsTemplate->addItems($this->lstDefaultNewsTemplate_GetItems());
             $this->lstDefaultNewsTemplate->SelectedValue = $this->intDefaultNews->FrontendTemplateLockedId;
@@ -731,6 +757,8 @@
                 $this->lstDefaultNewsTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -761,7 +789,7 @@
             $this->lstDefaultGalleryListTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultGalleryListTemplate->Theme = 'web-vauu';
             $this->lstDefaultGalleryListTemplate->Width = '100%';
-            $this->lstDefaultGalleryListTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultGalleryListTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultGalleryListTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultGalleryListTemplate->addItems($this->lstDefaultGalleryListTemplate_GetItems());
             $this->lstDefaultGalleryListTemplate->SelectedValue = $this->intDefaultGalleryList->FrontendTemplateLockedId;
@@ -850,6 +878,8 @@
                 $this->lstDefaultGalleryListTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -880,7 +910,7 @@
             $this->lstDefaultGalleryTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultGalleryTemplate->Theme = 'web-vauu';
             $this->lstDefaultGalleryTemplate->Width = '100%';
-            $this->lstDefaultGalleryTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultGalleryTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultGalleryTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultGalleryTemplate->addItems($this->lstDefaultGalleryTemplate_GetItems());
             $this->lstDefaultGalleryTemplate->SelectedValue = $this->intDefaultGallery->FrontendTemplateLockedId;
@@ -968,6 +998,8 @@
                 $this->lstDefaultGalleryTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -993,7 +1025,7 @@
             $this->lstDefaultEventsCalendarListTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultEventsCalendarListTemplate->Theme = 'web-vauu';
             $this->lstDefaultEventsCalendarListTemplate->Width = '100%';
-            $this->lstDefaultEventsCalendarListTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultEventsCalendarListTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultEventsCalendarListTemplate->addItem(t('- Select one type -'), null, true);
             $this->lstDefaultEventsCalendarListTemplate->addItems($this->lstDefaultEventsCalendarListTemplate_GetItems());
             $this->lstDefaultEventsCalendarListTemplate->SelectedValue = $this->intDefaultEventsCalendarList->FrontendTemplateLockedId;
@@ -1074,6 +1106,8 @@
                 $this->lstDefaultEventsCalendarListTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1099,7 +1133,7 @@
             $this->lstDefaultEventsCalendarTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultEventsCalendarTemplate->Theme = 'web-vauu';
             $this->lstDefaultEventsCalendarTemplate->Width = '100%';
-            $this->lstDefaultEventsCalendarTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultEventsCalendarTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultEventsCalendarTemplate->addItem(t('- Select one type -'), null, true);
             $this->lstDefaultEventsCalendarTemplate->addItems($this->lstDefaultEventsCalendarTemplate_GetItems());
             $this->lstDefaultEventsCalendarTemplate->SelectedValue = $this->intDefaultEventsCalendar->FrontendTemplateLockedId;
@@ -1182,6 +1216,8 @@
                 $this->lstDefaultEventsCalendarTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1207,7 +1243,7 @@
             $this->lstDefaultSportsCalendarListTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultSportsCalendarListTemplate->Theme = 'web-vauu';
             $this->lstDefaultSportsCalendarListTemplate->Width = '100%';
-            $this->lstDefaultSportsCalendarListTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultSportsCalendarListTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultSportsCalendarListTemplate->addItem(t('- Select one type -'), null, true);
             $this->lstDefaultSportsCalendarListTemplate->addItems($this->lstDefaultSportsCalendarListTemplate_GetItems());
             $this->lstDefaultSportsCalendarListTemplate->SelectedValue = $this->intDefaultSportsCalendarList->FrontendTemplateLockedId;
@@ -1288,6 +1324,8 @@
                 $this->lstDefaultSportsCalendarListTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1313,7 +1351,7 @@
             $this->lstDefaultSportsCalendarTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultSportsCalendarTemplate->Theme = 'web-vauu';
             $this->lstDefaultSportsCalendarTemplate->Width = '100%';
-            $this->lstDefaultSportsCalendarTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultSportsCalendarTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultSportsCalendarTemplate->addItem(t('- Select one type -'), null, true);
             $this->lstDefaultSportsCalendarTemplate->addItems($this->lstDefaultSportsCalendarTemplate_GetItems());
             $this->lstDefaultSportsCalendarTemplate->SelectedValue = $this->intDefaultSportsCalendar->FrontendTemplateLockedId;
@@ -1394,6 +1432,8 @@
                 $this->lstDefaultSportsCalendarTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1419,7 +1459,7 @@
             $this->lstDefaultSportsAreasTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultSportsAreasTemplate->Theme = 'web-vauu';
             $this->lstDefaultSportsAreasTemplate->Width = '100%';
-            $this->lstDefaultSportsAreasTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultSportsAreasTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultSportsAreasTemplate->addItem(t('- Select one type -'), null, true);
             $this->lstDefaultSportsAreasTemplate->addItems($this->lstDefaultSportsAreasTemplate_GetItems());
             $this->lstDefaultSportsAreasTemplate->SelectedValue = $this->intDefaultSportsAreas->FrontendTemplateLockedId;
@@ -1498,6 +1538,8 @@
                 $this->lstDefaultSportsAreasTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1523,7 +1565,7 @@
             $this->lstDefaultBoardTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultBoardTemplate->Theme = 'web-vauu';
             $this->lstDefaultBoardTemplate->Width = '100%';
-            $this->lstDefaultBoardTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultBoardTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultBoardTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultBoardTemplate->addItems($this->lstDefaultBoardTemplate_GetItems());
             $this->lstDefaultBoardTemplate->SelectedValue = $this->intDefaultBoard->FrontendTemplateLockedId;
@@ -1602,6 +1644,8 @@
                 $this->lstDefaultBoardTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
 
@@ -1628,7 +1672,7 @@
             $this->lstDefaultMembersTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultMembersTemplate->Theme = 'web-vauu';
             $this->lstDefaultMembersTemplate->Width = '100%';
-            $this->lstDefaultMembersTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultMembersTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultMembersTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultMembersTemplate->addItems($this->lstDefaultMembersTemplate_GetItems());
             $this->lstDefaultMembersTemplate->SelectedValue = $this->intDefaultMembers->FrontendTemplateLockedId;
@@ -1705,6 +1749,8 @@
                 $this->lstDefaultMembersTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1730,7 +1776,7 @@
             $this->lstDefaultVideosTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultVideosTemplate->Theme = 'web-vauu';
             $this->lstDefaultVideosTemplate->Width = '100%';
-            $this->lstDefaultVideosTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultVideosTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultVideosTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultVideosTemplate->addItems($this->lstDefaultVideosTemplate_GetItems());
             $this->lstDefaultVideosTemplate->SelectedValue = $this->intDefaultVideos->FrontendTemplateLockedId;
@@ -1808,6 +1854,8 @@
                 $this->lstDefaultVideosTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1833,7 +1881,7 @@
             $this->lstDefaultRecordsTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultRecordsTemplate->Theme = 'web-vauu';
             $this->lstDefaultRecordsTemplate->Width = '100%';
-            $this->lstDefaultRecordsTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultRecordsTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultRecordsTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultRecordsTemplate->addItems($this->lstDefaultRecordsTemplate_GetItems());
             $this->lstDefaultRecordsTemplate->SelectedValue = $this->intDefaultRecords->FrontendTemplateLockedId;
@@ -1912,6 +1960,8 @@
                 $this->lstDefaultRecordsTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1937,7 +1987,7 @@
             $this->lstDefaultRankingsTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultRankingsTemplate->Theme = 'web-vauu';
             $this->lstDefaultRankingsTemplate->Width = '100%';
-            $this->lstDefaultRankingsTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultRankingsTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultRankingsTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultRankingsTemplate->addItems($this->lstDefaultRankingsTemplate_GetItems());
             $this->lstDefaultRankingsTemplate->SelectedValue = $this->intDefaultRankings->FrontendTemplateLockedId;
@@ -2016,6 +2066,8 @@
                 $this->lstDefaultRecordsTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2041,7 +2093,7 @@
             $this->lstDefaultAchievementsTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultAchievementsTemplate->Theme = 'web-vauu';
             $this->lstDefaultAchievementsTemplate->Width = '100%';
-            $this->lstDefaultAchievementsTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultAchievementsTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultAchievementsTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultAchievementsTemplate->addItems($this->lstDefaultAchievementsTemplate_GetItems());
             $this->lstDefaultAchievementsTemplate->SelectedValue = $this->intDefaultAchievements->FrontendTemplateLockedId;
@@ -2120,6 +2172,8 @@
                 $this->lstDefaultAchievementsTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2146,7 +2200,7 @@
             $this->lstDefaultLinksTemplate->MinimumResultsForSearch = -1;
             $this->lstDefaultLinksTemplate->Theme = 'web-vauu';
             $this->lstDefaultLinksTemplate->Width = '100%';
-            $this->lstDefaultLinksTemplate->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstDefaultLinksTemplate->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstDefaultLinksTemplate->addItem(t('- Select one template -'), null, true);
             $this->lstDefaultLinksTemplate->addItems($this->lstDefaultLinksTemplate_GetItems());
             $this->lstDefaultLinksTemplate->SelectedValue = $this->intDefaultLinks->FrontendTemplateLockedId;
@@ -2225,6 +2279,8 @@
                 $this->lstDefaultLinksTemplate->refresh();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////

@@ -17,7 +17,7 @@
      * @property string $TempPath = Default temp path APP_UPLOADS_TEMP_DIR. If necessary, the temp dir must be specified.
      * @property string $StoragePath Default dir named _files. This dir is generated together with the dirs
      *                               /thumbnail, /medium, /large when the corresponding page is opened for the first time.
-     * @property string $FullStoragePath Please see the setup() function! This can only be changed in this function.
+     * @property string $FullStoragePath Please a see the setup() function! This can only be changed in this function.
      *
      * @property integer $ThumbnailResizeDimensions Default resized image dimensions. Default 320 is a good balance between
      *                                              visible quality and file size.

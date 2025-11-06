@@ -1,8 +1,10 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Event\Change;
     use QCubed\Event\Click;
     use QCubed\Action\AjaxControl;
@@ -61,7 +63,6 @@
         protected object $objMenu;
         protected object $objMenuContent;
         protected object $objStatisticsSettings;
-        protected int $intLoggedUserId;
 
         protected object $objGroupTitleCondition;
         protected ?array $objGroupTitleClauses;
@@ -102,20 +103,6 @@
             $this->objMenuContent = MenuContent::load($this->intId);
             $this->objStatisticsSettings = StatisticsSettings::loadByIdFromStatisticsSettings($this->intId);
 
-            /**
-             * NOTE: if the user_id is stored in session (e.g., if a User is logged in), as well, for example,
-             * checking against user session etc.
-             *
-             * Must save something here $this->objStatisticsSettings->setUserId(logged user session);
-             * or something similar...
-             *
-             * Options to do this are left to the developer.
-             **/
-
-            // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
-            // For example, John Doe is a logged user with his session
-            $this->intLoggedUserId = 1;
-
             $this->createInputs();
             $this->createButtons();
             $this->createModals();
@@ -151,7 +138,7 @@
             $this->txtMenuText = new Bs\TextBox($this);
             $this->txtMenuText->Placeholder = t('Menu text');
             $this->txtMenuText->Text = $this->objMenuContent->MenuText;
-            $this->txtMenuText->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtMenuText->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
             $this->txtMenuText->addWrapperCssClass('center-button');
             $this->txtMenuText->MaxLength = MenuContent::MENU_TEXT_MAX_LENGTH;
             $this->txtMenuText->Required = true;
@@ -175,7 +162,7 @@
             $this->lstContentTypes->MinimumResultsForSearch = -1;
             $this->lstContentTypes->Theme = 'web-vauu';
             $this->lstContentTypes->Width = '100%';
-            $this->lstContentTypes->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstContentTypes->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstContentTypes->addItems($this->lstContentTypeObject_GetItems(), true);
             $this->lstContentTypes->SelectedValue = $this->objMenuContent->ContentType;
 

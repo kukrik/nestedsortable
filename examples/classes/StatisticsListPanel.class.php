@@ -4,6 +4,7 @@
     use QCubed\Bootstrap as Bs;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\CellClick;
@@ -25,8 +26,8 @@
         public  StatisticsTable $dtgStatistics;
         public Bs\Button $btnBack;
 
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
 
         protected string $strTemplate = 'StatisticsListPanel.tpl.php';
 
@@ -66,7 +67,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 3;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createButtons();
@@ -76,6 +77,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Creates and configures buttons for the user interface.
@@ -132,7 +145,7 @@
                 return;
             }
 
-            Application::redirect('menu_manager.php');
+            Application::executeJavaScript("history.go(-1);");
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -197,6 +210,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $intId = intval($params->ActionParameter);
             $objStatistics = StatisticsSettings::loadById($intId);

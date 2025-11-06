@@ -361,17 +361,6 @@
         }
 
         /**
-         * Refresh the sortable items. Triggers the reloading of all sortable
-         * items, causing new items to be recognized.
-         *
-         * This method does not accept any arguments.
-         */
-//        public function refresh(): void
-//        {
-//            Application::executeControlCommand($this->getJqControlId(), $this->getJqSetupFunction(), "refresh", ApplicationBase::PRIORITY_LOW);
-//        }
-
-        /**
          * Refresh the cached positions of the sortable items. Calling this
          * method refreshes the cached item positions of all sortables.
          *
@@ -548,23 +537,20 @@
         }
 
         /**
-         * Magic method to set the property value dynamically.
-         * Updates the corresponding property and applies the appropriate changes
-         * to the jQuery widget's configuration.
+         * Sets the value of a property dynamically based on the provided property name.
+         * Updates the corresponding internal property and invokes a script to apply the change.
          *
-         * @param string $strName Name of the property to update.
-         * @param mixed $mixValue New value to assign to the specified property.
+         * @param string $strName The name of the property to set.
+         * @param mixed $mixValue The value to assign to the specified property.
          *
          * @return void
          *
          * @throws Caller
-         * @throws InvalidCast Thrown if the provided value type does not match the
-         *                     expected type of the property being set.
+         * @throws InvalidCast Thrown when type casting fails for specific property assignments.
          */
         public function __set(string $strName, mixed $mixValue): void
         {
             switch ($strName) {
-
                 case 'AppendTo':
                     $this->mixAppendTo = $mixValue;
                     $this->addAttributeScript($this->getJqSetupFunction(), 'option', 'appendTo', $mixValue);

@@ -2,7 +2,7 @@
     .form-actions  {display: block; background-color: #f5f5f5; border-radius: 4px; margin: 0; padding: 15px;}
     .form-horizontal .radio-inline {/*padding-top: 18px;*/margin-top: 0;margin-bottom: 0;}
     .setting-wrapper {margin-top: 0; padding: 30px 0 10px; scroll-margin: 0;}
-    .sports-area-add-wrapper {clear: both; height: 50px;  margin-top: 15px; padding: 0 0 15px; border-bottom: #ddd 1px solid;}
+    .sports-area-add-wrapper {margin: 15px 0; padding: 0 15px 15px; border-bottom: #ddd 1px solid;}
 </style>
 <div class="form-horizontal">
     <div class="row">
@@ -10,12 +10,11 @@
             <span class="vauu-title-3"><?php _t('Sports areas settings') ?></span>
         </div>
     </div>
-    <div class="row">
-        <div class="col-md-12">
-            <div class="sports-area-add-wrapper">
-                <?= _r($this->btnAddSportsArea); ?>
-                <?= _r($this->btnGoToEvents); ?>
-            </div>
+    <div class="sports-area-add-wrapper">
+        <div class="row">
+            <?= _r($this->btnAddSportsArea); ?>
+            <?= _r($this->btnRefresh); ?>
+            <?= _r($this->btnGoToEvents); ?>
         </div>
     </div>
     <div class="setting-wrapper hidden">

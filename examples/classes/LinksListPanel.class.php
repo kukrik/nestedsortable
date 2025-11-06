@@ -1,12 +1,14 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Event\DialogButton;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Event\Click;
     use QCubed\Event\Change;
@@ -39,8 +41,8 @@
     class LinksListPanel extends Panel
     {
         protected Q\Plugin\Select2 $lstItemsPerPageByAssignedUserObject;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToast1;
         protected Q\Plugin\Toastr $dlgToast2;
@@ -60,8 +62,9 @@
         public LinksTable $dtgLinks;
         public Bs\Button $btnBack;
 
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+
         protected ?object $objGroupTitleCondition = null;
         protected ?array $objGroupTitleClauses = null;
 
@@ -102,7 +105,7 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 3;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createButtons();
@@ -116,6 +119,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Resets UI elements related to item movement by hiding elements with the 'move-items-js' class.
@@ -147,14 +162,14 @@
             $this->lstLinksLocked->MinimumResultsForSearch = -1;
             $this->lstLinksLocked->Theme = 'web-vauu';
             $this->lstLinksLocked->Width = '100%';
-            $this->lstLinksLocked->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstLinksLocked->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstLinksLocked->addItem(t('- Select one links group -'), null, true);
 
             $this->lstTargetGroup = new Q\Plugin\Select2($this);
             $this->lstTargetGroup->MinimumResultsForSearch = -1;
             $this->lstTargetGroup->Theme = 'web-vauu';
             $this->lstTargetGroup->Width = '100%';
-            $this->lstTargetGroup->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstTargetGroup->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstTargetGroup->addItem(t('- Select one links group -'), null, true);
 
             $objGroups = LinksSettings::queryArray(
@@ -244,6 +259,8 @@
                 $this->lstLinksLocked->removeCssClass('has-error');
                 $this->lstTargetGroup->focus();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -279,6 +296,8 @@
             } else {
                 $this->lstTargetGroup->removeCssClass('has-error');
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -417,6 +436,8 @@
 
             $this->btnMove->Enabled = false;
             $this->dtgLinks->addCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -449,6 +470,8 @@
             $this->lstTargetGroup->refresh();
 
             $this->dtgLinks->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -475,6 +498,8 @@
 
             $this->elementsReset();
             $this->btnMove->Enabled = true;
+
+            $this->userOptions();
         }
 
         /**
@@ -500,13 +525,13 @@
             $objLinksSettings = LinksSettings::loadById($objLockedGroup->getId());
             $objLinksSettings->setLinksLocked(0);
             $objLinksSettings->setAssignedEditorsNameById($this->intLoggedUserId);
-            $objLinksSettings->setPostUpdateDate(Q\QDateTime::Now());
+            $objLinksSettings->setPostUpdateDate(QDateTime::now());
             $objLinksSettings->save();
 
             $objLinksSettings = LinksSettings::loadById($objTargetGroup->getId());
             $objLinksSettings->setLinksLocked(1);
             $objLinksSettings->setAssignedEditorsNameById($this->intLoggedUserId);
-            $objLinksSettings->setPostUpdateDate(Q\QDateTime::now());
+            $objLinksSettings->setPostUpdateDate(QDateTime::now());
             $objLinksSettings->save();
 
             foreach ($objLinksGroupArray as $objLinksGroup) {
@@ -569,6 +594,8 @@
             $this->lstTargetGroup->refresh();
 
             $this->dtgLinks->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -588,7 +615,7 @@
                 return;
             }
 
-            Application::redirect('menu_manager.php');
+            Application::executeJavaScript("history.go(-1);");
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -608,14 +635,16 @@
             $this->dtgLinks->RowParamsCallback = [$this, "dtgLinks_GetRowParams"];
             $this->dtgLinks->SortColumnIndex = 5;
             //$this->dtgLinks->SortDirection = -1;
+            $this->dtgLinks->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
             $this->dtgLinks->UseAjax = true;
-            $this->dtgLinks->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum(); //__toString();
         }
 
         /**
          * Create columns for the datagrid
          *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         protected function dtgLinks_CreateColumns(): void
         {
@@ -659,6 +688,8 @@
                 return;
             }
 
+            $this->userOptions();
+
             $intId = intval($params->ActionParameter);
             $objLinks = LinksSettings::loadById($intId);
             $intGroup = $objLinks->getMenuContentId();
@@ -700,8 +731,6 @@
             $this->dtgLinks->PaginatorAlternate->LabelForPrevious = t('Previous');
             $this->dtgLinks->PaginatorAlternate->LabelForNext = t('Next');
 
-            $this->dtgLinks->ItemsPerPage = 10;
-
             $this->addFilterActions();
         }
 
@@ -722,9 +751,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -739,20 +768,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -762,11 +792,14 @@
          * page of the data grid and refreshes it to reflect the updated pagination settings.
          *
          * @param ActionParams $params The action parameters containing details of the change event.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgLinks->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgLinks->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgLinks->refresh();
         }
 
@@ -805,6 +838,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -812,6 +846,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgLinks->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -839,10 +874,12 @@
          * This method updates the displayed data in the data grid to reflect the current filter criteria.
          *
          * @return void
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgLinks->refresh();
+            $this->userOptions();
         }
 
         /**

@@ -5,6 +5,7 @@
     use QCubed\Bootstrap as Bs;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Event\Click;
@@ -33,8 +34,8 @@
     class ArticleCategoriesManager extends Panel
     {
         protected ?object $lstItemsPerPageByAssignedUserObject = null;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToastr1;
         protected Q\Plugin\Toastr $dlgToastr2;
@@ -60,8 +61,8 @@
         public Bs\Button $btnCancel;
 
         protected int $intId;
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
         protected ?string $oldName = '';
 
         protected object $objCategoryOfArticle;
@@ -104,11 +105,8 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 1;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
-
-            //$this->intId = Application::instance()->context()->queryStringItem('id');
-            //$this->objCategoryOfArticle = CategoryOfArticle::load($this->intId);
 
             /**
              * NOTE: if the user_id is stored in session (e.g., if a User is logged in), as well, for example,
@@ -133,6 +131,18 @@
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
+
+        /**
          * Initializes the Article Categories Table with columns, paginators,
          * and editability settings, and configures row parameters and sorting.
          *
@@ -148,7 +158,8 @@
             $this->dtgCategoryOfArticle_MakeEditable();
             $this->dtgCategoryOfArticle->RowParamsCallback = [$this, "dtgCategoryOfArticle_GetRowParams"];
             $this->dtgCategoryOfArticle->SortColumnIndex = 0;
-            $this->dtgCategoryOfArticle->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum();
+            $this->dtgCategoryOfArticle->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->dtgCategoryOfArticle->UseAjax = true;
         }
 
         /**
@@ -219,14 +230,11 @@
             $this->txtCategory->focus();
             $this->lstStatus->SelectedValue = $objCategoryOfArticle->IsEnabled ?? null;
 
-            $this->dtgCategoryOfArticle->addCssClass('disabled');
-            $this->btnAddCategory->Enabled = false;
-            $this->btnGoToArticle->Display = false;
-            $this->txtCategory->Display = true;
-            $this->lstStatus->Display = true;
-            $this->btnSave->Display = true;
-            $this->btnDelete->Display = true;
-            $this->btnCancel->Display = true;
+            $this->oldName = $objCategoryOfArticle->getName();
+
+            $this->txtCategory->Text = $objCategoryOfArticle->getName();
+            $this->txtCategory->focus();
+            $this->lstStatus->SelectedValue = $objCategoryOfArticle->IsEnabled ?? null;
 
             $this->oldName = $objCategoryOfArticle->getName();
 
@@ -234,29 +242,12 @@
             $this->txtCategory->focus();
             $this->lstStatus->SelectedValue = $objCategoryOfArticle->IsEnabled ?? null;
 
-            $this->dtgCategoryOfArticle->addCssClass('disabled');
             $this->btnAddCategory->Enabled = false;
             $this->btnGoToArticle->Display = false;
-            $this->txtCategory->Display = true;
-            $this->lstStatus->Display = true;
-            $this->btnSave->Display = true;
-            $this->btnDelete->Display = true;
-            $this->btnCancel->Display = true;
 
-            $this->oldName = $objCategoryOfArticle->getName();
+            $this->disableInputs();
 
-            $this->txtCategory->Text = $objCategoryOfArticle->getName();
-            $this->txtCategory->focus();
-            $this->lstStatus->SelectedValue = $objCategoryOfArticle->IsEnabled ?? null;
-
-            $this->dtgCategoryOfArticle->addCssClass('disabled');
-            $this->btnAddCategory->Enabled = false;
-            $this->btnGoToArticle->Display = false;
-            $this->txtCategory->Display = true;
-            $this->lstStatus->Display = true;
-            $this->btnSave->Display = true;
-            $this->btnDelete->Display = true;
-            $this->btnCancel->Display = true;
+            $this->userOptions();
         }
 
         /**
@@ -301,9 +292,6 @@
             $this->dtgCategoryOfArticle->PaginatorAlternate->LabelForPrevious = t('Previous');
             $this->dtgCategoryOfArticle->PaginatorAlternate->LabelForNext = t('Next');
 
-            $this->dtgCategoryOfArticle->ItemsPerPage = 10;
-            $this->dtgCategoryOfArticle->SortColumnIndex = 4;
-            $this->dtgCategoryOfArticle->UseAjax = true;
             $this->addFilterActions();
         }
 
@@ -327,8 +315,8 @@
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
             $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -340,20 +328,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -361,11 +350,14 @@
          * Updates the items per page for the category of article data grid based on the selected value from the list of items per a page by the assigned user object and refreshes the data grid.
          *
          * @param ActionParams $params The parameters containing action-related data that may be used to determine how the change should be handled.
+         *
          * @return void This method does not return any value.
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgCategoryOfArticle->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgCategoryOfArticle->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgCategoryOfArticle->refresh();
         }
 
@@ -405,6 +397,7 @@
          * @param ActionParams $params The parameters passed to the click action, typically containing event details.
          *
          * @return void
+         * @throws Caller
          */
         protected function clearFilters_Click(ActionParams $params): void
         {
@@ -412,6 +405,7 @@
             $this->txtFilter->refresh();
 
             $this->dtgCategoryOfArticle->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -436,10 +430,12 @@
          * Refreshes the data grid displaying the category of articles when the filter is changed.
          *
          * @return void
+         * @throws Caller
          */
         protected function filterChanged(): void
         {
             $this->dtgCategoryOfArticle->refresh();
+            $this->userOptions();
         }
 
         /**
@@ -668,6 +664,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnAddCategory_Click(): void
         {
@@ -677,16 +674,22 @@
                 return;
             }
 
+            $this->userOptions();
+
+            $this->btnAddCategory->Enabled = false;
             $this->btnGoToArticle->Display = false;
-            $this->txtCategory->Display = true;
-            $this->lstStatus->Display = true;
             $this->lstStatus->SelectedValue = 2;
-            $this->btnSaveCategory->Display = true;
-            $this->btnCancel->Display = true;
             $this->txtCategory->Text = '';
             $this->txtCategory->focus();
-            $this->btnAddCategory->Enabled = false;
-            $this->dtgCategoryOfArticle->addCssClass('disabled');
+
+            $this->disableInputs();
+
+            if (!$this->txtCategory->Text) {
+                $this->btnDelete->Display = false;
+            }
+
+            $this->btnSave->Display = false;
+            $this->btnSaveCategory->Display = true;
         }
 
         /**
@@ -714,10 +717,8 @@
                     $objCategoryNews = new CategoryOfArticle();
                     $objCategoryNews->setName(trim($this->txtCategory->Text));
                     $objCategoryNews->setIsEnabled($this->lstStatus->SelectedValue);
-                    $objCategoryNews->setPostDate(Q\QDateTime::now());
+                    $objCategoryNews->setPostDate(QDateTime::now());
                     $objCategoryNews->save();
-
-                    $this->dtgCategoryOfArticle->refresh();
 
                     if (!empty($_SESSION['article'])) {
                         $this->btnGoToArticle->Display = true;
@@ -725,12 +726,11 @@
 
                     unset($this->objCategoryNames);
 
-                    $this->txtCategory->Display = false;
-                    $this->lstStatus->Display = false;
-                    $this->btnSaveCategory->Display = false;
-                    $this->btnCancel->Display = false;
                     $this->btnAddCategory->Enabled = true;
-                    $this->dtgCategoryOfArticle->removeCssClass('disabled');
+                    $this->enableInputs();
+
+                    $this->dtgCategoryOfArticle->refresh();
+
                     $this->txtCategory->Text = '';
                     $this->dlgToastr1->notify();
                 } else {
@@ -743,6 +743,8 @@
                 $this->txtCategory->focus();
                 $this->dlgToastr2->notify();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -767,7 +769,7 @@
             $objCategoryOfArticle = CategoryOfArticle::loadById($this->intId);
 
             foreach ($objArticleArray as $objArticle) {
-                if ($objArticle->CategoryId == $this->intId) {
+                if ($objArticle->ArticleCategoryId == $this->intId) {
                     $this->objCompressTexts[] = $objArticle->Title;
                 }
             }
@@ -805,21 +807,17 @@
 
                     $objCategoryOfArticle->setName(trim($this->txtCategory->Text));
                     $objCategoryOfArticle->setIsEnabled($this->lstStatus->SelectedValue);
-                    $objCategoryOfArticle->setPostUpdateDate(Q\QDateTime::now());
+                    $objCategoryOfArticle->setPostUpdateDate(QDateTime::now());
                     $objCategoryOfArticle->save();
-
-                    $this->dtgCategoryOfArticle->refresh();
-                    $this->btnAddCategory->Enabled = true;
 
                     if (!empty($_SESSION['article'])) {
                         $this->btnGoToArticle->Display = true;
                     }
 
-                    $this->txtCategory->Display = false;
-                    $this->lstStatus->Display = false;
-                    $this->btnSave->Display = false;
-                    $this->btnDelete->Display = false;
-                    $this->btnCancel->Display = false;
+                    $this->btnAddCategory->Enabled = true;
+                    $this->enableInputs();
+
+                    $this->dtgCategoryOfArticle->refresh();
 
                     $this->dtgCategoryOfArticle->removeCssClass('disabled');
                     $this->txtCategory->Text = $objCategoryOfArticle->getName();
@@ -836,6 +834,8 @@
             }
 
             unset($this->objCompressTexts);
+
+            $this->userOptions();
         }
 
         /**
@@ -852,7 +852,7 @@
             $objCategoryOfArticle = CategoryOfArticle::loadById($this->intId);
             $objCategoryOfArticle->setName(trim($this->txtCategory->Text));
             $objCategoryOfArticle->setIsEnabled($this->lstStatus->SelectedValue);
-            $objCategoryOfArticle->setPostUpdateDate(Q\QDateTime::Now());
+            $objCategoryOfArticle->setPostUpdateDate(QDateTime::Now());
             $objCategoryOfArticle->save();
 
             if (!empty($_SESSION['article'])) {
@@ -860,17 +860,14 @@
             }
 
             $this->btnAddCategory->Enabled = true;
-            $this->txtCategory->Display = false;
-            $this->lstStatus->Display = false;
-            $this->btnSave->Display = false;
-            $this->btnDelete->Display = false;
-            $this->btnCancel->Display = false;
-            $this->dtgCategoryOfArticle->removeCssClass('disabled');
+            $this->enableInputs();
 
             $this->dlgModal4->hideDialogBox();
             $this->dlgToastr1->notify();
 
             unset($this->objCompressTexts);
+
+            $this->userOptions();
         }
 
         /**
@@ -881,6 +878,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         public function hide_Click(ActionParams $params): void
         {
@@ -895,17 +893,12 @@
             }
 
             $this->btnAddCategory->Enabled = true;
-            $this->txtCategory->Display = false;
-            $this->lstStatus->Display = false;
-            $this->btnSave->Display = false;
-            $this->btnDelete->Display = false;
-            $this->btnCancel->Display = false;
-            $this->dtgCategoryOfArticle->removeCssClass('disabled');
+            $this->enableInputs();
 
             $this->dlgModal1->hideDialogBox();
-            $this->dlgModal3->hideDialogBox();
-            $this->dlgModal4->hideDialogBox();
             unset($this->objCompressTexts);
+
+            $this->userOptions();
         }
 
         /**
@@ -930,14 +923,14 @@
             $objArticleArray = Article::loadAll();
 
             foreach ($objArticleArray as $objArticle) {
-                if ($objArticle->CategoryId == $this->intId) {
+                if ($objArticle->ArticleCategoryId == $this->intId) {
                     $this->objCompressTexts[] = $objArticle->Title;
                 }
             }
 
             $this->objMenuTexts = implode(', ', $this->objCompressTexts);
 
-            if (Article::countByCategoryId($this->intId) > 0) {
+            if (Article::countByArticleCategoryId($this->intId) > 0) {
                 $this->dlgModal2->showDialogBox();
                 $this->dlgModal2->Text = t('<p style="line-height: 25px; margin-bottom: 5px;">The article category cannot be
                                     deleted at this time!</p>
@@ -952,17 +945,13 @@
 
                 unset($this->objCompressTexts);
 
-                $this->btnAddCategory->Enabled = true;
-                $this->txtCategory->Display = false;
-                $this->lstStatus->Display = false;
-                $this->btnSave->Display = false;
-                $this->btnDelete->Display = false;
-                $this->btnCancel->Display = false;
-                $this->dtgCategoryOfArticle->removeCssClass('disabled');
+                $this->disableInputs();
 
             } else {
                 $this->dlgModal1->showDialogBox();
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -983,16 +972,11 @@
                 $objCategoryOfArticle->delete();
             }
 
-            $this->dtgCategoryOfArticle->refresh();
             $this->btnAddCategory->Enabled = true;
-            $this->txtCategory->Display = false;
-            $this->lstStatus->Display = false;
-            $this->btnSave->Display = false;
-            $this->btnDelete->Display = false;
-            $this->btnCancel->Display = false;
-
-            $this->dtgCategoryOfArticle->removeCssClass('disabled');
+            $this->enableInputs();
             $this->dlgModal1->hideDialogBox();
+
+            $this->userOptions();
         }
 
         /**
@@ -1002,6 +986,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         protected function btnCancel_Click(ActionParams $params): void
         {
@@ -1011,19 +996,67 @@
                 return;
             }
 
-            $this->txtCategory->Display = false;
-            $this->lstStatus->Display = false;
-            $this->btnSaveCategory->Display = false;
-            $this->btnSave->Display = false;
-            $this->btnDelete->Display = false;
-            $this->btnCancel->Display = false;
             $this->btnAddCategory->Enabled = true;
-            $this->dtgCategoryOfArticle->removeCssClass('disabled');
+            $this->enableInputs();
             $this->txtCategory->Text = '';
+            $this->btnSaveCategory->Display = false;
 
             if (!empty($_SESSION['article'])) {
                 $this->btnGoToArticle->Display = true;
             }
+
+            $this->userOptions();
+        }
+
+        /**
+         * Enables input fields and interactive elements within the form.
+         *
+         * This method activates specific UI components, including text fields, buttons,
+         * filters, and the paginator, making them available for user interaction. Some
+         * elements, such as gallery-related fields and save/cancel buttons, are hidden
+         * or disabled.
+         *
+         * @return void
+         */
+        public function enableInputs(): void
+        {
+            $this->txtCategory->Display = false;
+            $this->lstStatus->Display = false;
+            $this->btnSave->Display = false;
+            $this->btnDelete->Display = false;
+            $this->btnCancel->Display = false;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = true;
+            $this->txtFilter->Enabled = true;
+            $this->btnClearFilters->Enabled = true;
+            $this->dtgCategoryOfArticle->Paginator->Enabled = true;
+
+            $this->dtgCategoryOfArticle->removeCssClass('disabled');
+        }
+
+        /**
+         * Disables specific input elements and applies a disabled style to the article categories data grid.
+         *
+         * This method sets the `Enabled` property of specific input controls to `false`,
+         * indicating that those inputs are no longer interactable. Additionally, the data grid
+         * for gallery groups is styled with a disabled CSS class for visual feedback.
+         *
+         * @return void This method does not return any value.
+         */
+        public function disableInputs(): void
+        {
+            $this->txtCategory->Display = true;
+            $this->lstStatus->Display = true;
+            $this->btnSave->Display = true;
+            $this->btnDelete->Display = true;
+            $this->btnCancel->Display = true;
+
+            $this->lstItemsPerPageByAssignedUserObject->Enabled = false;
+            $this->txtFilter->Enabled = false;
+            $this->btnClearFilters->Enabled = false;
+            $this->dtgCategoryOfArticle->Paginator->Enabled = false;
+
+            $this->dtgCategoryOfArticle->addCssClass('disabled');
         }
 
         /**
@@ -1073,8 +1106,8 @@
             $objCategoryArray = CategoryOfArticle::loadAll();
 
             foreach ($objArticleArray as $objArticle) {
-                if ($objArticle->CategoryId) {
-                    $this->objCategoryIds[] = $objArticle->CategoryId;
+                if ($objArticle->ArticleCategoryId) {
+                    $this->objCategoryIds[] = $objArticle->ArticleCategoryId;
                 }
             }
 

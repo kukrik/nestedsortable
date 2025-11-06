@@ -1,6 +1,7 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
@@ -199,7 +200,7 @@
             $this->lstContentTypesManagement->MinimumResultsForSearch = -1;
             $this->lstContentTypesManagement->Theme = 'web-vauu';
             $this->lstContentTypesManagement->Width = '100%';
-            $this->lstContentTypesManagement->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstContentTypesManagement->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstContentTypesManagement->addItem(t('- Select custom content type -'), null, true);
             $this->lstContentTypesManagement->addItems($this->lstContentTypesManagement_GetItems());
             $this->lstContentTypesManagement->SelectedValue = $this->objFrontendOptions->ContentTypesManagementId;

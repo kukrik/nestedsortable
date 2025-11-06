@@ -3,6 +3,7 @@
     use QCubed as Q;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Event\Click;
     use QCubed\Event\DialogButton;
     use QCubed\Event\EnterKey;
@@ -10,6 +11,7 @@
     use QCubed\Action\AjaxControl;
     use QCubed\Action\ActionParams;
     use QCubed\Exception\Caller;
+    use QCubed\QDateTime;
     use Random\RandomException;
     use QCubed\Project\Application;
 
@@ -45,12 +47,13 @@
         protected string $strSaveButtonId;
         protected string $strSavingButtonId;
 
-        protected int $intId;
         protected ?object $objMenuContent = null;
         protected ?object $objArticle = null;
         protected ?object $objMetadata = null;
 
-        protected int $intLoggedUserId;
+        protected int $intId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
 
         protected string $strTemplate = 'PageMetaDataPanel.tpl.php';
 
@@ -89,7 +92,8 @@
 
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
-            $this->intLoggedUserId = 3;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
+            $this->objUser = User::load($this->intLoggedUserId);
 
             $this->createInputs();
             $this->createButtons();
@@ -98,6 +102,18 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
 
         /**
          * Initializes and configures the input fields and labels for metadata entry.
@@ -126,7 +142,7 @@
 
             $this->txtKeywords = new Bs\TextBox($this);
             $this->txtKeywords->Text = $this->objMetadata->Keywords ?? null;
-            $this->txtKeywords->TextMode = Q\Control\TextBoxBase::MULTI_LINE;
+            $this->txtKeywords->TextMode = TextBoxBase::MULTI_LINE;
             $this->txtKeywords->Rows = 3;
             $this->txtKeywords->addWrapperCssClass('center-button');
             $this->txtKeywords->AddAction(new EnterKey(), new AjaxControl($this,'btnMenuSave_Click'));
@@ -141,7 +157,7 @@
 
             $this->txtDescription = new Bs\TextBox($this);
             $this->txtDescription->Text = $this->objMetadata->Description ?? null;
-            $this->txtDescription->TextMode = Q\Control\TextBoxBase::MULTI_LINE;
+            $this->txtDescription->TextMode = TextBoxBase::MULTI_LINE;
             $this->txtDescription->Rows = 3;
             $this->txtDescription->addWrapperCssClass('center-button');
             $this->txtDescription->AddAction(new EnterKey(), new AjaxControl($this,'btnMenuSave_Click'));
@@ -290,7 +306,7 @@
 
             if ($this->objMenuContent->getContentType() == 2) {
                 if ($this->objArticle->getTitle()) {
-                    $this->objArticle->setPostUpdateDate(Q\QDateTime::Now());
+                    $this->objArticle->setPostUpdateDate(QDateTime::now());
                     $this->objArticle->save();
                     $this->dlgToastr->notify();
                 } else {
@@ -320,6 +336,8 @@
                 Application::executeJavaScript("jQuery($this->strSaveButtonId).text('$strUpdate_translate');");
                 Application::executeJavaScript("jQuery($this->strSavingButtonId).text('$strUpdateAndClose_translate');");
             }
+
+            $this->userOptions();
         }
 
         /**
@@ -347,7 +365,7 @@
 
             if ($this->objMenuContent->getContentType() == 2) {
                 if ($this->objArticle->getTitle()) {
-                    $this->objArticle->setPostUpdateDate(Q\QDateTime::Now());
+                    $this->objArticle->setPostUpdateDate(QDateTime::now());
                     $this->objArticle->save();
                     $this->redirectToListPage();
                 }  else {
@@ -360,6 +378,7 @@
             $this->objMetadata->setAuthor($this->txtAuthor->Text);
             $this->objMetadata->save();
 
+            $this->userOptions();
             $this->redirectToListPage();
         }
 
@@ -379,6 +398,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             if ($this->objMetadata->getKeywords() || $this->objMetadata->getDescription() || $this->objMetadata->getAuthor()) {
                 $this->dlgModal1->showDialogBox();
@@ -403,6 +424,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->objMetadata->setKeywords(null);
             $this->objMetadata->setDescription(null);
@@ -429,6 +452,7 @@
          *
          * @return void
          * @throws RandomException
+         * @throws Caller
          */
         public function recallItem_Click(ActionParams $params): void
         {
@@ -437,6 +461,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->txtKeywords->Text = '';
             $this->txtDescription->Text = '';
@@ -469,7 +495,7 @@
                     // For example, John Doe is a logged user with his session
                     if ($this->objMenuContent->getContentType() == 2) {
                         $this->objArticle->setAssignedEditorsNameById(2);
-                        $this->objArticle->setPostUpdateDate(Q\QDateTime::Now());
+                        $this->objArticle->setPostUpdateDate(QDateTime::now());
                     }
                 }
             } else {
@@ -497,6 +523,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->redirectToListPage();
         }

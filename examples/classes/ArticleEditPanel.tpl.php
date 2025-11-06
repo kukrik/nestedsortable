@@ -29,9 +29,11 @@
                 </div>
                 <div class="form-group">
                     <?= _r($this->lblCategory); ?>
-                    <div class="col-md-7">
-                        <?= _r($this->lstCategory); ?>
-                        <?= _r($this->btnGoToArticleCategroy); ?>
+                    <div class="form-inline">
+                        <div class="col-md-7">
+                            <?= _r($this->lstCategory); ?>
+                            <?= _r($this->btnGoToArticleCategroy); ?>
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">

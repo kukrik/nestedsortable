@@ -89,6 +89,7 @@
          * @param string|null $strControlId An optional string identifier for the control.
          *
          * @return void
+         * @throws \Exception
          * @throws Caller
          */
         public function __construct(ControlBase|FormBase $objParentObject, ?string $strControlId = null)
@@ -404,6 +405,7 @@
          * @return mixed The value of the requested property, or the result of the parent's __get method if the property
          *               is not found in this class. Throws an exception if the property is invalid or inaccessible.
          * @throws Caller
+         * @throws \Exception
          */
         public function __get(string $strName): mixed
         {
@@ -440,12 +442,14 @@
          * the request to the parent implementation.
          *
          * @param string $strName The name of the property to set.
-         * @param mixed $mixValue The value to be assigned to the property. The type of the value depends on the property.
+         * @param mixed $mixValue The value to be assigned to the property. The type of the value depends on the
+         *     property.
          *
          * @return void
          *
          * @throws InvalidCast If the provided value cannot be cast to the expected type for the property.
          * @throws Caller If the property name is unknown, and the parent handler does not recognize it.
+         * @throws \Exception
          */
         public function __set(string $strName, mixed $mixValue): void
         {

@@ -1,8 +1,10 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
+    use QCubed\Control\TextBoxBase;
     use QCubed\Event\Change;
     use QCubed\Event\Click;
     use QCubed\Action\AjaxControl;
@@ -121,7 +123,7 @@
             $this->txtMenuText = new Bs\TextBox($this);
             $this->txtMenuText->Placeholder = t('Menu text');
             $this->txtMenuText->Text = $this->objMenuContent->MenuText;
-            $this->txtMenuText->CrossScripting = Q\Control\TextBoxBase::XSS_HTML_PURIFIER;
+            $this->txtMenuText->CrossScripting = TextBoxBase::XSS_HTML_PURIFIER;
             $this->txtMenuText->addWrapperCssClass('center-button');
             $this->txtMenuText->Required = true;
 
@@ -139,7 +141,7 @@
             $this->lstContentTypes->MinimumResultsForSearch = -1;
             $this->lstContentTypes->Theme = 'web-vauu';
             $this->lstContentTypes->Width = '100%';
-            $this->lstContentTypes->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstContentTypes->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstContentTypes->addItems($this->lstContentTypeObject_GetItems(), true);
             $this->lstContentTypes->SelectedValue = $this->objMenuContent->ContentType;
             $this->lstContentTypes->setHtmlAttribute('required', 'required');

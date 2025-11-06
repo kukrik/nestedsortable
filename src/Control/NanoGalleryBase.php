@@ -214,6 +214,7 @@
          * @param string|null $strControlId An optional ID for the control. If null, an ID will be auto-generated.
          *
          * @return void
+         * @throws \Exception
          * @throws Caller If there is an issue during the parent constructor call.
          */
         public function __construct(ControlBase|FormBase $objParentObject, ?string $strControlId = null)

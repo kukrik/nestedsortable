@@ -1,11 +1,13 @@
 <?php
 
     use QCubed as Q;
+    use QCubed\Control\ListBoxBase;
     use QCubed\Control\Panel;
     use QCubed\Bootstrap as Bs;
     use QCubed\Database\Exception\UndefinedPrimaryKey;
     use QCubed\Exception\Caller;
     use QCubed\Exception\InvalidCast;
+    use QCubed\QDateTime;
     use QCubed\Query\Condition\AndCondition;
     use Random\RandomException;
     use QCubed\Event\Click;
@@ -40,8 +42,8 @@
         protected array $arrAllowed = array('jpg', 'jpeg', 'bmp', 'png', 'webp', 'gif');
 
         protected Q\Plugin\Select2 $lstItemsPerPageByAssignedUserObject;
-        protected ?object $objItemsPerPageByAssignedUserObjectCondition = null;
-        protected ?array $objItemsPerPageByAssignedUserObjectClauses = null;
+        protected ?object $objPreferredItemsPerPageObjectCondition = null;
+        protected ?array $objPreferredItemsPerPageObjectClauses = null;
 
         protected Q\Plugin\Toastr $dlgToast1;
         protected Q\Plugin\Toastr $dlgToast2;
@@ -70,8 +72,11 @@
 
         protected object $objGalleryList;
 
-        protected object $objUser;
-        protected int $intLoggedUserId;
+        protected ?int $intLoggedUserId = null;
+        protected ?object $objUser = null;
+        protected object $objPortlet;
+
+
         protected int $countByIsReserved;
         protected int $countByAlbumsLocked;
         protected ?object $objGroupTitleCondition = null;
@@ -117,8 +122,9 @@
             // $this->intLoggedUserId = $_SESSION['logged_user_id']; // Approximately example here etc...
             // For example, John Doe is a logged user with his session
 
-            $this->intLoggedUserId = 3;
+            $this->intLoggedUserId = $_SESSION['logged_user_id'];
             $this->objUser = User::load($this->intLoggedUserId);
+            $this->objPortlet = Portlet::load(3);
 
             $this->createInputs();
             $this->createButtons();
@@ -133,6 +139,37 @@
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        /**
+         * Updates the user's last active timestamp to the current time and saves the changes to the user object.
+         *
+         * @return void The method does not return a value.
+         * @throws Caller
+         */
+        private function userOptions(): void
+        {
+            $this->objUser->setLastActive(QDateTime::now());
+            $this->objUser->save();
+        }
+
+        /**
+         * Updates the portlet with the total count of news items and the latest modification date.
+         * If news items are available, it sets the total count, assigns the current date and time
+         * as the last updated date, and saves these changes to the portlet.
+         *
+         * @return void
+         * @throws Caller
+         */
+        private function updatePortlet(): void
+        {
+            $objPage = GalleryList::countAll();
+
+            if ($objPage) {
+                $this->objPortlet->setTotalValue($objPage);
+                $this->objPortlet->setLastDate(QDateTime::now());
+                $this->objPortlet->save();
+            }
+        }
 
         /**
          * Initializes and configures the input controls necessary for the current form or context.
@@ -152,7 +189,7 @@
             $this->lstTargetGroup->MinimumResultsForSearch = -1;
             $this->lstTargetGroup->Theme = 'web-vauu';
             $this->lstTargetGroup->Width = '100%';
-            $this->lstTargetGroup->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstTargetGroup->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstTargetGroup->addItem(t('- Select one target group -'), null, true);
 
             $objTargetGroups = GallerySettings::loadAll(QQ::Clause(QQ::orderBy(QQN::GallerySettings()->Id)));
@@ -360,6 +397,7 @@
 
             $this->updateLockStatus();
             $this->disableInputs();
+            $this->userOptions();
 
             $this->txtTitle->Text = '';
             $this->btnAddAlbum->Enabled = false;
@@ -369,7 +407,7 @@
             $this->lstGroupTitle->MinimumResultsForSearch = -1;
             $this->lstGroupTitle->Theme = 'web-vauu';
             $this->lstGroupTitle->Width = '100%';
-            $this->lstGroupTitle->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstGroupTitle->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstGroupTitle->addItem(t('- Select one gallery group -'), null, true);
 
             $objGroups = GallerySettings::loadAll(QQ::Clause(QQ::orderBy(QQN::GallerySettings()->Id)));
@@ -423,12 +461,13 @@
 
             $this->updateLockStatus();
             $this->disableInputs();
+            $this->userOptions();
 
             $this->lstGalleryLocked = new Q\Plugin\Select2($this);
             $this->lstGalleryLocked->MinimumResultsForSearch = -1;
             $this->lstGalleryLocked->Theme = 'web-vauu';
             $this->lstGalleryLocked->Width = '100%';
-            $this->lstGalleryLocked->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstGalleryLocked->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstGalleryLocked->addItem(t('- Select one gallery group -'), null, true);
 
             $objGroups = GallerySettings::queryArray(
@@ -583,6 +622,8 @@
 
             $this->enableInputs();
             $this->dtgGallery->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -601,6 +642,8 @@
                 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
+
+            $this->userOptions();
 
             $this->dlgModal1->hideDialogBox();
             $this->albumsTransferOperations();
@@ -639,12 +682,12 @@
 
             // Here you need to make some small changes to GallerySettings right away.
             $objLockedGroup->setAlbumsLocked(0);
-            $objLockedGroup->setPostUpdateDate(Q\QDateTime::Now());
+            $objLockedGroup->setPostUpdateDate(QDateTime::now());
             $objLockedGroup->save();
 
             if ($objTargetGroup->getAlbumsLocked() == 0) {
                 $objTargetGroup->setAlbumsLocked(1);
-                $objTargetGroup->setPostUpdateDate(Q\QDateTime::Now());
+                $objTargetGroup->setPostUpdateDate(QDateTime::now());
                 $objTargetGroup->save();
             }
 
@@ -697,7 +740,7 @@
                 $objList->setParentFolderId($objTargetGroup->getFolderId());
                 $objList->setPath(GalleryList::generateUniqueSlug($strNewPath));
                 $objList->setTitleSlug($updatedSlug);
-                $objList->setPostUpdateDate(Q\QDateTime::Now());
+                $objList->setPostUpdateDate(QDateTime::now());
                 $objList->save();
 
                 // However, changing the data of the subfolders that are being moved immediately: parent_id, path and title must be changed to check for uniqueness
@@ -733,7 +776,7 @@
                 $this->fullMove($src, $dst);
 
                 // We need to inform other users about the user who last did
-                $objList->setPostUpdateDate(Q\QDateTime::now());
+                $objList->setPostUpdateDate(QDateTime::now());
                 $objList->setAssignedEditorsNameById($this->intLoggedUserId);
                 $objList->save();
             }
@@ -844,8 +887,11 @@
                 $objGalleryList->setAssignedByUser($this->objUser->getId());
                 $objGalleryList->setAuthor($objGalleryList->getAssignedByUserObject());
                 $objGalleryList->setStatus(2);
-                $objGalleryList->setPostDate(Q\QDateTime::Now());
+                $objGalleryList->setPostDate(QDateTime::now());
                 $objGalleryList->save();
+
+                $this->userOptions();
+                $this->updatePortlet();
 
                 $objFrontendLinks = new FrontendLinks();
                 $objFrontendLinks->setLinkedId($objGalleryList->getId());
@@ -908,6 +954,8 @@
 
             $this->enableInputs();
             $this->dtgGallery->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -953,6 +1001,8 @@
 
             $this->enableInputs();
             $this->dtgGallery->removeCssClass('disabled');
+
+            $this->userOptions();
         }
 
         /**
@@ -972,7 +1022,9 @@
                 return;
             }
 
-            Application::redirect('menu_manager.php');
+            $this->userOptions();
+
+            Application::executeJavaScript("history.go(-1);");
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1262,8 +1314,8 @@
             $this->dtgGallery->RowParamsCallback = [$this, "dtgGallery_GetRowParams"];
             $this->dtgGallery->SortColumnIndex = 3;
             //$this->dtgGallery->SortDirection = -1;
+            $this->dtgGallery->ItemsPerPage = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
             $this->dtgGallery->UseAjax = true;
-            $this->dtgGallery->ItemsPerPage = $this->objUser->ItemsPerPageByAssignedUserObject->pushItemsPerPageNum(); //__toString();
         }
 
         /**
@@ -1354,8 +1406,6 @@
             $this->dtgGallery->PaginatorAlternate->LabelForPrevious = t('Previous');
             $this->dtgGallery->PaginatorAlternate->LabelForNext = t('Next');
 
-            $this->dtgGallery->ItemsPerPage = 10;
-
             $this->addFilterActions();
         }
 
@@ -1378,9 +1428,9 @@
             $this->lstItemsPerPageByAssignedUserObject->MinimumResultsForSearch = -1;
             $this->lstItemsPerPageByAssignedUserObject->Theme = 'web-vauu';
             $this->lstItemsPerPageByAssignedUserObject->Width = '100%';
-            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
-            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->ItemsPerPageByAssignedUser;
-            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstItemsPerPageByAssignedUserObject_GetItems());
+            $this->lstItemsPerPageByAssignedUserObject->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstItemsPerPageByAssignedUserObject->SelectedValue = $this->objUser->PreferredItemsPerPageObject->getItemsPer();
+            $this->lstItemsPerPageByAssignedUserObject->addItems($this->lstPreferredItemsPerPageObject_GetItems());
             $this->lstItemsPerPageByAssignedUserObject->AddAction(new Change(), new AjaxControl($this, 'lstItemsPerPageByAssignedUserObject_Change'));
         }
 
@@ -1392,20 +1442,21 @@
          * @throws Caller
          * @throws InvalidCast
          */
-        public function lstItemsPerPageByAssignedUserObject_GetItems(): array
+        public function lstPreferredItemsPerPageObject_GetItems(): array
         {
             $a = array();
-            $objCondition = $this->objItemsPerPageByAssignedUserObjectCondition;
+            $objCondition = $this->objPreferredItemsPerPageObjectCondition;
             if (is_null($objCondition)) $objCondition = QQ::all();
-            $objItemsPerPageByAssignedUserObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objItemsPerPageByAssignedUserObjectClauses);
+            $objPreferredItemsPerPageObjectCursor = ItemsPerPage::queryCursor($objCondition, $this->objPreferredItemsPerPageObjectClauses);
 
             // Iterate through the Cursor
-            while ($objItemsPerPageByAssignedUserObject = ItemsPerPage::instantiateCursor($objItemsPerPageByAssignedUserObjectCursor)) {
-                $objListItem = new ListItem($objItemsPerPageByAssignedUserObject->__toString(), $objItemsPerPageByAssignedUserObject->Id);
-                if (($this->objUser->ItemsPerPageByAssignedUserObject) && ($this->objUser->ItemsPerPageByAssignedUserObject->Id == $objItemsPerPageByAssignedUserObject->Id))
+            while ($objPreferredItemsPerPageObject = ItemsPerPage::instantiateCursor($objPreferredItemsPerPageObjectCursor)) {
+                $objListItem = new ListItem($objPreferredItemsPerPageObject->__toString(), $objPreferredItemsPerPageObject->Id);
+                if (($this->objUser->PreferredItemsPerPageObject) && ($this->objUser->PreferredItemsPerPageObject->Id == $objPreferredItemsPerPageObject->Id))
                     $objListItem->Selected = true;
                 $a[] = $objListItem;
             }
+
             return $a;
         }
 
@@ -1413,11 +1464,14 @@
          * Updates the number of items per a page in the gallery based on the selected value from the dropdown list.
          *
          * @param ActionParams $params The parameters passed from the action triggering this change.
+         *
          * @return void
+         * @throws Caller
+         * @throws InvalidCast
          */
         public function lstItemsPerPageByAssignedUserObject_Change(ActionParams $params): void
         {
-            $this->dtgGallery->ItemsPerPage = $this->lstItemsPerPageByAssignedUserObject->SelectedName;
+            $this->dtgGallery->ItemsPerPage = ItemsPerPage::load($this->lstItemsPerPageByAssignedUserObject->SelectedValue)->getItemsPer();
             $this->dtgGallery->refresh();
         }
 
@@ -1445,7 +1499,7 @@
             $this->lstGroups->MinimumResultsForSearch = -1;
             $this->lstGroups->Theme = 'web-vauu';
             $this->lstGroups->Width = '100%';
-            $this->lstGroups->SelectionMode = Q\Control\ListBoxBase::SELECTION_MODE_SINGLE;
+            $this->lstGroups->SelectionMode = ListBoxBase::SELECTION_MODE_SINGLE;
             $this->lstGroups->addItem(t('- Select a gallery group -'), null, true);
 
             $objGroups = GallerySettings::queryArray(
