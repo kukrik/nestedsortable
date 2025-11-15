@@ -1,4 +1,3 @@
-<style>/*#c24_col_0 {pointer-events: none;}*/</style>
 <div class="form-horizontal">
     <div class="row">
         <div class="table-top-heading">

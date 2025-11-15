@@ -18,7 +18,7 @@
   "bugs" : {
     "url" : "https://github.com/nanostudio-org/nanogallery2/issues"
   },
-  "dependencies": {
+  "devDependencies": {
     "grunt": "~0.4.1",
     "grunt-bump": "0.0.13",
     "grunt-codepainter": "latest",
