@@ -881,7 +881,7 @@ class SampleForm extends Form
         $this->lblDeletionWarning->UseWrapper = false;
 
         $this->lblDeletionInfo = new Q\Plugin\Label($this->dlgModal27);
-        $this->lblDeletionInfo->Text = t("Can\'t undo it afterwards!");
+        $this->lblDeletionInfo->Text = t("This action cannot be undone.");
         $this->lblDeletionInfo->addCssClass("deletion-info-text");
         $this->lblDeletionInfo->setCssStyle('width', '100%');
         $this->lblDeletionInfo->setCssStyle('color', '#ff0000');

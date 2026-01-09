@@ -1065,7 +1065,7 @@
         {
             $this->dlgModal1 = new Bs\Modal($this);
             $this->dlgModal1->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">Are you sure you want to permanently delete this event?</p>
-                                <p style="line-height: 25px; margin-bottom: -3px;">Can\'t undo it afterwards!</p>');
+                                <p style="line-height: 25px; margin-bottom: -3px;">This action cannot be undone.</p>');
             $this->dlgModal1->Title = t('Warning');
             $this->dlgModal1->HeaderClasses = 'btn-danger';
             $this->dlgModal1->addButton(t("I accept"), "pass", false, false, null,
@@ -1106,7 +1106,7 @@
 
             $this->dlgModal6 = new Bs\Modal($this);
             $this->dlgModal6->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">Are you sure you want to permanently delete this document?</p>
-                                <p style="line-height: 25px; margin-bottom: -3px;">Can\'t undo it afterwards!</p>');
+                                <p style="line-height: 25px; margin-bottom: -3px;">This action cannot be undone.</p>');
             $this->dlgModal6->Title = t('Warning');
             $this->dlgModal6->HeaderClasses = 'btn-danger';
             $this->dlgModal6->addButton(t("I accept"), "pass", false, false, null,

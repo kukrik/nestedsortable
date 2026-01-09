@@ -731,7 +731,7 @@
 
             $this->dlgModal3 = new Bs\Modal($this);
             $this->dlgModal3->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">Are you sure you want to permanently delete this file?</p>
-                                <p style="line-height: 25px; margin-bottom: -3px;">Can\'t undo it afterwards!</p>');
+                                <p style="line-height: 25px; margin-bottom: -3px;">This action cannot be undone.</p>');
             $this->dlgModal3->Title = 'Warning';
             $this->dlgModal3->HeaderClasses = 'btn-danger';
             $this->dlgModal3->addButton("I accept", 'This file has been permanently deleted', false, false, null,
@@ -753,7 +753,7 @@
 
             $this->dlgModal6 = new Bs\Modal($this);
             $this->dlgModal6->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">Are you sure you want to permanently delete this album?</p>
-                                <p style="line-height: 25px; margin-bottom: -3px;">Can\'t undo it afterwards!</p>');
+                                <p style="line-height: 25px; margin-bottom: -3px;">This action cannot be undone.</p>');
             $this->dlgModal6->Title = 'Warning';
             $this->dlgModal6->HeaderClasses = 'btn-danger';
             $this->dlgModal6->addButton("I accept", 'This file has been permanently deleted', false, false, null,

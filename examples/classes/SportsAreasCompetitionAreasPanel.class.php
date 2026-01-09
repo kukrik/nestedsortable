@@ -752,7 +752,7 @@
             $this->dlgModal1 = new Bs\Modal($this);
             $this->dlgModal1->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">Are you sure you want to permanently
                                         delete the sport area?</p>
-                                        <p style="line-height: 25px; margin-bottom: -3px;">Can\'t undo it afterwards!</p>');
+                                        <p style="line-height: 25px; margin-bottom: -3px;">This action cannot be undone.</p>');
             $this->dlgModal1->Title = t('Warning');
             $this->dlgModal1->HeaderClasses = 'btn-danger';
             $this->dlgModal1->addButton(t("I accept"), "pass", false, false, null,

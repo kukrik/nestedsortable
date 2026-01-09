@@ -366,7 +366,7 @@
 
             $this->dlgModal5 = new Bs\Modal($this);
             $this->dlgModal5->Text = t('<p style="line-height: 25px; margin-bottom: 2px;">Are you sure you want to permanently delete this menu item?</p>
-                                        <p style="line-height: 25px; margin-bottom: -3px;">Can\'t undo it afterwards!</p>');
+                                        <p style="line-height: 25px; margin-bottom: -3px;">This action cannot be undone.</p>');
             $this->dlgModal5->Title = t('Warning');
             $this->dlgModal5->HeaderClasses = 'btn-danger';
             $this->dlgModal5->addButton(t("I accept"), t('This menu item has been permanently deleted.'), false, false, null, ['class' => 'btn btn-orange']);
